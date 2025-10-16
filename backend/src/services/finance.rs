@@ -1,3 +1,10 @@
+//! Finalizes approved reports into NetSuite batch exports.
+//!
+//! Serves the `POST /finance/finalize` REST workflow defined in
+//! `backend/src/api/rest/finance.rs`, coordinating GL postings and external
+//! export stubs described in `POLICY.md` §"Approvals and Reimbursement Process"
+//! and §"General Ledger Mapping".
+
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -12,21 +19,47 @@ use crate::{
 
 use super::errors::ServiceError;
 
+/// Payload accepted by `POST /finance/finalize` containing the reports to post
+/// and the NetSuite batch metadata.
+///
+/// Report identifiers should correspond to records already marked
+/// `ReportStatus::FinanceFinalized` by the approval workflow outlined in
+/// `POLICY.md` §"Approvals and Reimbursement Process".
 #[derive(Debug, Deserialize)]
 pub struct FinalizeRequest {
     pub report_ids: Vec<Uuid>,
     pub batch_reference: String,
 }
 
+/// Coordinates journal line creation and NetSuite export invocations.
 pub struct FinanceService {
     pub state: Arc<AppState>,
 }
 
 impl FinanceService {
+    /// Constructs the finance integration service from shared application
+    /// state.
     pub fn new(state: Arc<AppState>) -> Self {
         Self { state }
     }
 
+    /// Finalizes a batch of reports by persisting GL lines and invoking the
+    /// NetSuite export adapter.
+    ///
+    /// * `actor` — authenticated finance user; must have the `Role::Finance`
+    ///   designation to comply with segregation of duties in `POLICY.md`
+    ///   §"Approvals and Reimbursement Process".
+    /// * `payload` — report identifiers and reference string consumed by
+    ///   downstream accounting processes.
+    ///
+    /// Side effects:
+    /// * Creates a `NetSuiteBatch` record and related `JournalLine` entries,
+    ///   populating GL accounts described in `POLICY.md` §"General Ledger
+    ///   Mapping".
+    /// * Calls `infrastructure::netsuite::export_batch`, a stubbed integration
+    ///   point for NetSuite, and stores the serialized response.
+    /// * Updates each report status to `ReportStatus::FinanceFinalized` to signal
+    ///   completion back to the approvals domain.
     pub async fn finalize_reports(
         &self,
         actor: &AuthenticatedUser,
