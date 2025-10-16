@@ -14,6 +14,10 @@ path = "src/lib.rs"
 name = "expense_portal"
 path = "src/main.rs"
 
+[[bin]]
+name = "migrator"
+path = "src/bin/migrator.rs"
+
 [dependencies]
 anyhow = "1"
 async-trait = "0.1"

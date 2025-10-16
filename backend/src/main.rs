@@ -8,11 +8,8 @@ use expense_portal::{
     infrastructure::{config::Config, db, state::AppState, storage},
     jobs, telemetry,
 };
-use sqlx::migrate::Migrator;
 use tokio::signal;
 use tracing::{info, warn};
-
-static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -20,7 +17,6 @@ async fn main() -> anyhow::Result<()> {
     telemetry::init();
     let config = Arc::new(Config::from_env()?);
     let pool = db::connect(&config.database).await?;
-    MIGRATOR.run(&pool).await?;
     let storage = storage::build_storage(&config.storage)?;
     let state = Arc::new(AppState::new(Arc::clone(&config), pool, storage));
 
