@@ -1,6 +1,8 @@
 AGENTS Instructions (kdnye/expenses)
 These are lightweight, practical rules for contributing and maintaining this repo. They mirror patterns used in sibling repos and add a few finance/PII-specific guardrails.
 
+ never generate binary files as they cannot be directly merged via github
+
 1) Code Style
 Prefer Python 3.11+, react, js, rust.
 Format with black (line length 88). Organize imports with isort. Lint with ruff (or flake8). Type check with mypy on new/changed modules.
