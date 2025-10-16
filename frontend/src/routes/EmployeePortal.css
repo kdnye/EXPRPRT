@@ -1,0 +1,76 @@
+.employee-portal {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.employee-portal header h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.06em;
+  margin: 0;
+  color: #1c53a1;
+}
+
+.employee-portal header p {
+  margin: 0;
+  max-width: 640px;
+  color: #334155;
+}
+
+.employee-portal__grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.employee-portal__form {
+  background: #ffffff;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  display: grid;
+  gap: 1rem;
+  box-shadow: 0 10px 24px rgba(66, 139, 202, 0.1);
+  border: 1px solid rgba(66, 139, 202, 0.15);
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.form-row label {
+  font-weight: 600;
+  color: #1c53a1;
+}
+
+.form-row input,
+.form-row select {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(28, 83, 161, 0.3);
+  font-size: 1rem;
+}
+
+button[type='submit'] {
+  background-color: #1c53a1;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  justify-self: flex-start;
+}
+
+button[type='submit']:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.error {
+  color: #b91c1c;
+  font-weight: 600;
+}

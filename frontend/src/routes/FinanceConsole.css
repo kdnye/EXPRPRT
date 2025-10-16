@@ -1,0 +1,49 @@
+.finance-console {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.finance-console header h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.06em;
+  margin: 0;
+  color: #1c53a1;
+}
+
+.finance-console__grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(45, 120, 228, 0.08);
+}
+
+thead {
+  background-color: rgba(28, 83, 161, 0.1);
+  color: #1c53a1;
+}
+
+thead th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-family: 'Lato', sans-serif;
+}
+
+tbody td {
+  padding: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+tbody tr:nth-child(even) {
+  background-color: rgba(243, 248, 255, 0.6);
+}

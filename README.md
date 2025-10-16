@@ -1,198 +1,96 @@
-# EXPRPRT
+# Freight Services Expense Portal
 
-FSI Expense Submission Portal
-A full-stack web application for capturing, approving, and exporting Freight Services employee expenses with built-in policy safeguards. 
+A full-stack implementation of the Freight Services expense workflow using **Rust (Axum)**, **React + Vite**, and **PostgreSQL**. Employees capture expenses with receipts, managers approve within a shared queue, and finance finalizes batches for NetSuite export while policy controls run end-to-end.
 
-AI agents: never generate binary files as they cannot be directly merged via github
+> **Note for contributors:** AI agents and humans alike must avoid generating binary files in this repository. Stick to source code, configuration, and textual assets.
 
-Features
-Employees enter expenses in the browser and submit them directly to the database through the bundled backend service.
-Submissions are automatically flagged for manager and finance review with a two-stage approval workflow.
-Inline policy reminders for travel, meals, and mileage reimbursements with automatic mileage calculations at the IRS rate.
-Managers review incoming reports, record decisions, and unblock finance approvals through the shared admin console.
-Finance analysts can download detailed ZIP exports or NetSuite-ready journal summaries for a chosen date window.
-Offline-ready experience once the site has been loaded at least once while online.
-Attach receipts (images or PDFs) to individual expenses and track upload status before submitting.
-Comprehensive documentation
-For a full operational handbook—including architecture notes, onboarding checklists, and the official Freight Services expense reimbursement policy—see docs/OPERATIONS_GUIDE.md.
-For the Rust + React + PostgreSQL implementation blueprint that mirrors the current manual workflow, review docs/architecture.md.
+## Repository structure
 
-Getting started
-Frontend test prerequisites
-Whether you are working locally or inside the provided Codespaces devcontainer, install the Node dependencies before running any frontend-focused checks:
+```
+backend/   # Axum API, domain services, SQLx migrations, background jobs
+frontend/  # React single-page application with employee, manager, and finance consoles
+docs/      # Architecture reference material
+```
 
-npm install
-The devcontainer intentionally skips automatic installation, so run this command manually prior to executing tasks such as npm test or npm run lint.
+Key capabilities include:
 
-Environment configuration
-Configuration values for both the frontend build and the backend API are loaded centrally by server/src/config.ts. Copy .env.example to .env and adjust the values for your environment before starting any servers:
+- Policy-driven validation for per-diem, mileage, and travel class before manager review.
+- Chunked receipt uploads backed by a pluggable storage provider (local filesystem, S3/GCS-ready interface).
+- Manager and finance workflows with optimistic locking and tamper-resistant audit logging.
+- NetSuite batch export stubs ready for credential wiring plus retry-aware job scaffolding.
+- Offline-aware React UI with local draft persistence and service worker caching.
 
+## Getting started
+
+### Prerequisites
+
+- Rust 1.74+
+- Node.js 20+
+- Docker (optional, for containerized development)
+- PostgreSQL 15 (local or via Docker Compose)
+
+### Environment configuration
+
+Copy the sample configuration and adjust as needed:
+
+```bash
 cp .env.example .env
-Key variables include:
+```
 
-Variable	Purpose
-ADMIN_JWT_SECRET	Required secret used to sign administrator session cookies.
-RECEIPT_MAX_BYTES / RECEIPT_MAX_FILES	Upper bounds enforced by the receipt upload endpoint.
-RECEIPT_STORAGE_PROVIDER	Storage backend (memory, s3, gcs, or gdrive).
-S3_* / GCS_* / GDRIVE_*	Provider-specific settings for receipt storage integrations.
-The defaults in .env.example keep uploads in memory. Switch to S3, Google Cloud Storage, or Google Drive by updating RECEIPT_STORAGE_PROVIDER and filling in the corresponding section of the file. Invalid or missing combinations are detected at startup so misconfiguration is caught early.
+All backend settings use the `EXPENSES__` prefix and are parsed by `backend/src/infrastructure/config.rs`. Frontend builds read `VITE_` variables at compile time and defer to runtime overrides via HTML meta tags or `window.__FSI_EXPENSES_CONFIG__`.
 
-Run the full stack with Docker Compose
-Create a .env file in the repository root that at minimum defines the administrator session secret:
-ADMIN_JWT_SECRET="replace-with-a-long-random-string"
-You can also override the default Postgres credentials exposed by docker-compose.yml by setting POSTGRES_DB, POSTGRES_USER, and POSTGRES_PASSWORD in the same file. The Compose configuration injects everything into the API container and derives DATABASE_URL automatically.
-Build and start the stack:
-Development / Codespaces (compose.yaml)
-(Optional) Create a .env file in the repository root to override the defaults. Without one the stack boots with API_KEY=local-dev-api-key, ADMIN_JWT_SECRET=dev-admin-secret, and a PostgreSQL database named expenses.
-Start the stack:
-docker compose up
-The development compose file mounts the repository into the container, installs dependencies on first boot, generates the Prisma client, waits for Postgres, applies migrations, and then launches npm run dev with file watching enabled. Restart the service to pick up dependency changes.
-Visit http://localhost:3000 to access the combined API and single-page application. The Postgres container publishes port 5432 so tools like psql can connect for inspection or local debugging.
-To create new Prisma migrations during development, run:
+### Run everything with Docker Compose
 
-docker compose run --rm api npx prisma migrate dev --name <migration-name>
-The command uses the mounted workspace, so any generated migration files appear directly in server/prisma/migrations/.
+```bash
+docker compose up --build
+```
 
-Production-style image (docker-compose.yml)
-The repository also includes a production-focused compose file that builds the multi-stage API image. Follow the same .env guidance above and then start the services with:
+Services exposed:
 
-docker compose -f docker-compose.yml up --build
-This variant runs the compiled server (node dist/index.js) inside the container instead of the watch mode used for local development.
+- API: http://localhost:8080
+- Frontend: http://localhost:3000
+- PostgreSQL: localhost:5432 (credentials `expenses` / `expenses` by default)
 
-Local PostgreSQL installation
-If you prefer to run PostgreSQL directly on your workstation instead of the bundled Docker container, follow the step-by-step guide in docs/POSTGRESQL_SETUP.md. The walkthrough covers installing PostgreSQL on macOS, Linux, and Windows, provisioning the expected database/role with scripts/bootstrap-postgres.sh, and wiring the API to the local instance.
+Receipts uploaded during development are written to the `receipts` named volume.
 
-Frontend-only preview
-Launch the Vite development server:
+### Local backend workflow
+
+```bash
+cd backend
+cargo fmt
+cargo check
+cargo sqlx migrate run # requires DATABASE_URL
+cargo run
+```
+
+The API listens on the host/port defined in configuration (defaults to `0.0.0.0:8080`). SQLx migrations live under `backend/migrations` and are applied automatically at startup.
+
+### Local frontend workflow
+
+```bash
+cd frontend
+npm install
 npm run dev
-Open the printed local URL in your browser and start adding expenses.
-When you are ready to inspect the production build, run npm run build followed by npm run preview to serve the optimized assets.
-Local storage persistence is optional; if the browser disables access, the app still functions without saving state between sessions.
+```
 
-Configuring the API endpoint
-By default the web client sends receipt uploads and report submissions to the same origin it was served from (for example /api/reports) so they persist directly to the shared database. When the API is hosted on a different domain or behind a reverse proxy prefix, provide the target base URL through one of the following options:
+Visit the printed URL (typically http://localhost:5173) to access the SPA. The dev server proxies API calls to `VITE_API_BASE` (default `/api`).
 
-Add a meta tag to index.html (and admin.html for the finance console):
-<meta name="fsi-expenses-api-base" content="https://expenses-api.example.com" />
-Define a global configuration object before loading the main bundle (or src/admin.js for the finance console):
-<script>
-  window.__FSI_EXPENSES_CONFIG__ = { apiBaseUrl: 'https://expenses-api.example.com' };
-</script>
-Relative values such as /internal/expenses-api are also supported. If no configuration is supplied the app continues to use same-origin requests.
+## Testing & quality gates
 
-Container image
-The application can be packaged as a lightweight NGINX container by using the included Dockerfile. The container listens on the PORT environment variable (default 8080), making it compatible with platforms like Google Cloud Run.
+- `cargo fmt` / `cargo check` / `cargo test` for the Rust backend.
+- `npm run lint` / `npm run typecheck` / `npm run test` for the React client.
+- CI (recommended) should run formatters, linters, unit tests, and integration tests against an ephemeral PostgreSQL instance.
 
-Build and run locally:
+## Deployment notes
 
-docker build -t expenses-web:local .
-docker run --rm -p 8080:8080 expenses-web:local
-The site will be served at http://localhost:8080.
+- Backend Docker image defined in `backend/Dockerfile` (multi-stage Rust build).
+- Frontend Docker image defined in `frontend/Dockerfile` (Node build + NGINX static host).
+- Environment variables mirror `.env.example` and should be provided via secrets management in production.
+- NetSuite integration is stubbed; replace `infrastructure/netsuite.rs` with a signed REST/SOAP client once credentials are available.
 
-Cloud Run static hosting
-Manual deployment
-Use the following sequence to build, push, and deploy the static frontend to Google Cloud Run. Replace the sample identifiers with values from your project:
+## Additional documentation
 
-export PROJECT_ID="my-expenses-project"
-export REGION="us-east4"
-export GAR_LOCATION="us-east4"
-export REPOSITORY="expenses"
-export SERVICE="expenses"
-export IMAGE_NAME="expenses-frontend"
-export IMAGE_TAG="$(git rev-parse --short HEAD)"
-export IMAGE_URI="${GAR_LOCATION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/${IMAGE_NAME}:${IMAGE_TAG}"
+- [`docs/architecture.md`](docs/architecture.md) – Policy mapping, data model, and workflow details that guided this implementation.
+- [`POLICY.md`](POLICY.md) – Source policy document for expense categories, limits, and approval hierarchy.
 
-docker build -t "$IMAGE_URI" .
-docker push "$IMAGE_URI"
-
-gcloud run deploy "$SERVICE" \
-  --project "$PROJECT_ID" \
-  --region "$REGION" \
-  --image "$IMAGE_URI" \
-  --allow-unauthenticated \
-  --platform managed
-If you manage Cloud Run through a declarative YAML file, update the spec.template.spec.containers[0].image field with IMAGE_URI before calling gcloud run services replace.
-
-GitHub Actions workflow
-The repository includes a workflow (.github/workflows/cloud-run-frontend.yml) that mirrors the manual steps above. On each push to main, the workflow:
-
-Authenticates to Google Cloud via Workload Identity Federation.
-Builds the frontend container with the commit SHA as the tag and pushes it to Artifact Registry.
-Deploys the image to the configured Cloud Run service and promotes the revision to 100% traffic.
-Configure the project-specific values described in the GitHub configuration section to enable the pipeline.
-
-Kubernetes database configuration
-The k8s/ manifests now include a StatefulSet (postgres-statefulset.yaml) that provisions an in-cluster PostgreSQL 15 instance with persistent storage plus the secrets required by both the database and API deployments. Apply the manifests with Kustomize:
-
-kubectl apply -k k8s/
-Before deploying to a shared environment, replace the placeholder values in k8s/api-secret.yaml and k8s/postgres-secret.yaml or create the secrets through your preferred secret manager:
-
-kubectl create secret generic expenses-api-secrets \
-  --from-literal=DATABASE_URL="postgresql://<user>:<password>@<host>:5432/expenses?schema=public" \
-  --from-literal=ADMIN_JWT_SECRET="<jwt-secret>"
-Point DATABASE_URL at the internal service (expenses-postgres) for the bundled StatefulSet or swap the hostname for a managed database endpoint when you move to production. The API deployment reads all sensitive configuration from the expenses-api-secrets Secret so you can rotate credentials without modifying the manifest.
-
-If you are using a managed PostgreSQL offering, omit postgres-secret.yaml and postgres-statefulset.yaml from your Kustomize overlay and configure DATABASE_URL to reference the managed instance directly.
-
-Similarly, you can create the database credential secret at deployment time instead of editing the checked-in file:
-
-kubectl create secret generic expenses-postgres-credentials \
-  --from-literal=POSTGRES_DB="expenses" \
-  --from-literal=POSTGRES_USER="<db-user>" \
-  --from-literal=POSTGRES_PASSWORD="<db-password>"
-The Kubernetes deployment mirrors the Compose behavior by running npx prisma migrate deploy before starting the Node.js server, ensuring each rollout applies pending migrations automatically. For zero-downtime upgrades with large migrations, consider running the deploy step manually before scaling up new pods.
-
-Offline support
-The application registers a service worker that precaches the core HTML, CSS, JavaScript, and manifest assets. Load the site once while online so the service worker can install; subsequent visits (or reloads) will continue to work even without a network connection, using the cached assets for requests.
-
-Google Cloud deployment pipelines
-This repository provides two GitHub Actions workflows:
-
-.github/workflows/google.yml builds the full-stack container and deploys it to Google Kubernetes Engine (GKE) using the manifests in k8s/.
-.github/workflows/cloud-run-frontend.yml builds the static frontend container and deploys it to Cloud Run.
-One-time Google Cloud setup
-Enable required APIs in your Google Cloud project:
-Artifact Registry (artifactregistry.googleapis.com)
-Google Kubernetes Engine (container.googleapis.com)
-Cloud Run Admin API (run.googleapis.com)
-IAM Credentials API (iamcredentials.googleapis.com)
-Create infrastructure (replace names with your preferred values):
-Create an Artifact Registry Docker repository, e.g. expenses in region us-central1.
-Create or reuse a GKE cluster (zonal or regional) capable of running public web workloads.
-Create a dedicated service account (for example github-actions@<PROJECT_ID>.iam.gserviceaccount.com) and grant it the following roles:
-roles/artifactregistry.writer
-roles/container.developer
-roles/run.admin
-Configure Workload Identity Federation so GitHub can impersonate the service account without long-lived keys:
-Create a Workload Identity Pool and Provider following the google-github-actions/auth documentation.
-Authorize the provider to impersonate the service account you created in step 3.
-Capture the identifiers you will need for the workflows:
-Google Cloud project ID (e.g. my-expenses-project)
-Artifact Registry location (e.g. us-central1)
-Artifact Registry repository name (e.g. expenses)
-GKE cluster name (e.g. expenses-cluster)
-GKE cluster location (zone or region, e.g. us-central1-c)
-Kubernetes deployment name (matches the metadata name in k8s/deployment.yaml, default expenses-web)
-Cloud Run service name (e.g. expenses)
-Cloud Run region (e.g. us-east4)
-Workload Identity Provider resource path (e.g. projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/<POOL>/providers/<PROVIDER>)
-Service account email (created in step 3)
-GitHub configuration
-Add the following repository variables (Settings → Secrets and variables → Actions → Variables) so the workflow picks up your project-specific values without editing the workflow file:
-
-Variable name	Used by	Example value
-GCP_PROJECT_ID	Both	my-expenses-project
-GAR_LOCATION	Both	us-central1
-GAR_REPOSITORY	Both	expenses
-WORKLOAD_IDENTITY_PROVIDER	Both	projects/123456789/locations/global/workloadIdentityPools/github/providers/expenses
-WIF_SERVICE_ACCOUNT	Both	github-actions@my-expenses-project.iam.gserviceaccount.com
-GKE_CLUSTER	GKE only	expenses-cluster
-GKE_LOCATION	GKE only	us-central1-c
-GKE_DEPLOYMENT_NAME	GKE only	expenses-web
-CLOUD_RUN_SERVICE	Cloud Run only	expenses
-CLOUD_RUN_REGION	Cloud Run only	us-east4
-Note: GitHub repository variables are appropriate here because the values are not secrets. Use repository secrets instead if you prefer to keep the identifiers private.
-
-Once the variables are in place, pushes to the main branch will trigger the workflows to build and publish updated containers. The GKE workflow rolls out the API + frontend bundle, while the Cloud Run workflow updates the static frontend-only service.
-
-You can inspect or customize the Kubernetes manifests under k8s/ to tune replica counts, resource requests/limits, or service type.
+Contributions should include automated tests, documentation updates, and respect for PII/data-safety guidance in `AGENTS.md`.
