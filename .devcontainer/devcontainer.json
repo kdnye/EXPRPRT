@@ -7,12 +7,12 @@
   "updateContentCommand": "npm install && npm install --prefix frontend",
   "postCreateCommand": "",
   "postAttachCommand": {
-    "server": "npm --prefix frontend run dev -- --host 0.0.0.0 --port 3000"
+    "server": "npm run dev -- --host 0.0.0.0 --port 3000"
   },
   "customizations": {
     "codespaces": {
       "openFiles": [
-        "src/App.jsx"
+        "frontend/src/main.tsx"
       ]
     }
   },
