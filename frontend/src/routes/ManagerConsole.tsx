@@ -1,3 +1,15 @@
+/**
+ * Manager queue for reviewing employee-submitted reports with policy context.
+ *
+ * - Fetches the approval backlog from `GET /manager/queue` (see
+ *   `backend/src/api/rest/expenses.rs` for submission and
+ *   `backend/src/services/approvals.rs` for the manager decision engine).
+ *   The queue aggregates reports waiting on a manager according to
+ *   POLICY.md §"Approvals and Reimbursement Process".
+ * - Highlights policy flags surfaced by the backend so managers can quickly
+ *   identify exceptions before calling `POST /approvals/:id` in the action
+ *   buttons that will be wired to `ApprovalService`.
+ */
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { request } from '../api/client';

@@ -1,6 +1,26 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
 import { loadDrafts, removeDraft, upsertDraft } from '../offline/draftStore';
 
+/**
+ * Persists expense form state to `localStorage` with debounce semantics for
+ * offline support.
+ *
+ * The hook mirrors the draft persistence strategy described in
+ * `docs/architecture.md` (offline UX) by writing to the shared
+ * `draftStore`. Each state change is debounced (default 400 ms) before
+ * calling `upsertDraft`, minimizing synchronous storage writes while keeping
+ * data resilient during intermittent connectivity. Storage is skipped when
+ * `window.localStorage` is unavailable (server rendering, private mode, or
+ * quota exhaustion), and consumers are expected to call the returned
+ * `resetDraft` helper after submission so `removeDraft` can prune stale drafts.
+ *
+ * Because the browser-only storage quota is limited (~5–10 MB depending on
+ * the engine) and not encrypted, callers should keep payloads small and avoid
+ * attaching PII beyond what is necessary for drafts. The hook falls back to
+ * the provided `createInitialDraft` factory when no persisted state exists or
+ * after cleanup.
+ */
+
 interface UseExpenseDraftOptions {
   debounceMs?: number;
 }
