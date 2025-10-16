@@ -4,10 +4,10 @@
     "cpus": 4
   },
   "waitFor": "onCreateCommand",
-  "updateContentCommand": "npm install",
+  "updateContentCommand": "npm install && npm install --prefix frontend",
   "postCreateCommand": "",
   "postAttachCommand": {
-    "server": "npm start"
+    "server": "npm --prefix frontend run dev -- --host 0.0.0.0 --port 3000"
   },
   "customizations": {
     "codespaces": {
