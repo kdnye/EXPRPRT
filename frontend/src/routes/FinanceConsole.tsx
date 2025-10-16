@@ -1,3 +1,16 @@
+/**
+ * Finance console for monitoring export-ready batches and journal status.
+ *
+ * - Retrieves batch summaries via `GET /finance/batches`, aligning with the
+ *   export workflow defined in `backend/src/api/rest/finance.rs` and the
+ *   orchestration in `backend/src/services/finance.rs`.
+ * - Reinforces downstream responsibilities from POLICY.md
+ *   §"Approvals and Reimbursement Process" and the GL mapping tables so
+ *   finance staff understand why batches are grouped and which accounts are
+ *   impacted.
+ * - Complements the finance finalize action (`POST /finance/finalize`) by
+ *   presenting status and retry counts surfaced by the backend services.
+ */
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { request } from '../api/client';

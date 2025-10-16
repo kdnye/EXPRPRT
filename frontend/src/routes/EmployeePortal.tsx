@@ -1,3 +1,17 @@
+/**
+ * Employee self-service view for drafting and submitting new expense reports.
+ *
+ * - Calls `POST /expenses/reports` to create a draft report and
+ *   `POST /expenses/reports/:id/submit` to hand the draft to manager review.
+ *   Those endpoints are implemented by `backend/src/api/rest/expenses.rs`
+ *   backed by the workflows in `backend/src/services/expenses.rs`.
+ * - Surfaces high-level policy messaging for offline drafting and validation
+ *   in line with POLICY.md §"Approvals and Reimbursement Process", ensuring
+ *   employees understand that policy checks run prior to manager approval.
+ * - Pairs with `frontend/src/hooks/useExpenseDraft.ts` for offline-ready draft
+ *   persistence so users can work without a network connection before
+ *   submission.
+ */
 import { useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
