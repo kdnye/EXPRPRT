@@ -10,7 +10,7 @@ use tracing::warn;
 
 use crate::{
     domain::models::{Employee, Role},
-    infrastructure::{config::Config, state::AppState},
+    infrastructure::state::AppState,
     services::errors::ServiceError,
 };
 
@@ -36,9 +36,9 @@ impl JwtKeys {
     }
 }
 
-pub fn issue_token(config: Arc<Config>, employee: &Employee) -> Result<String, ServiceError> {
+pub fn issue_token(state: &AppState, employee: &Employee) -> Result<String, ServiceError> {
     let expiration = chrono::Utc::now()
-        + chrono::Duration::from_std(config.jwt_ttl())
+        + chrono::Duration::from_std(state.config.jwt_ttl())
             .map_err(|_| ServiceError::Internal("failed to calculate expiration".into()))?;
     let claims = Claims {
         sub: employee.id,
@@ -48,7 +48,7 @@ pub fn issue_token(config: Arc<Config>, employee: &Employee) -> Result<String, S
     encode(
         &Header::new(Algorithm::HS256),
         &claims,
-        &JwtKeys::new(&config.auth.jwt_secret).encoding,
+        &state.jwt_keys.encoding,
     )
     .map_err(|err| ServiceError::Internal(err.to_string()))
 }
@@ -97,11 +97,7 @@ impl FromRequestParts<()> for AuthenticatedUser {
             .strip_prefix("Bearer ")
             .ok_or(AuthError::Invalid)?;
         let validation = Validation::new(Algorithm::HS256);
-        match decode::<Claims>(
-            token,
-            &JwtKeys::new(&state.config.auth.jwt_secret).decoding,
-            &validation,
-        ) {
+        match decode::<Claims>(token, &state.jwt_keys.decoding, &validation) {
             Ok(data) => Ok(AuthenticatedUser {
                 employee_id: data.claims.sub,
                 role: data.claims.role,
