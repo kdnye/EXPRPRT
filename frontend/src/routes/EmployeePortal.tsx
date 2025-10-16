@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { z } from 'zod';
 import { request } from '../api/client';
 import SummaryCard from '../components/SummaryCard';
+import useExpenseDraft from '../hooks/useExpenseDraft';
 import './EmployeePortal.css';
 
 interface ExpenseDraft {
@@ -10,31 +12,55 @@ interface ExpenseDraft {
   currency: string;
 }
 
+const createReportResponseSchema = z.object({
+  report: z.object({
+    id: z.string()
+  })
+});
+
+const EXPENSE_DRAFT_ID = 'employee-portal:new-expense-report';
+
 const EmployeePortal = () => {
-  const [draft, setDraft] = useState<ExpenseDraft>({
-    reportingPeriodStart: '',
-    reportingPeriodEnd: '',
-    currency: 'USD'
+  const createInitialDraft = useCallback<() => ExpenseDraft>(
+    () => ({
+      reportingPeriodStart: '',
+      reportingPeriodEnd: '',
+      currency: 'USD'
+    }),
+    []
+  );
+
+  const [draft, setDraft, resetDraft] = useExpenseDraft(EXPENSE_DRAFT_ID, createInitialDraft);
+
+  const createReportMutation = useMutation({
+    mutationFn: async (form: ExpenseDraft) => {
+      const payload = await request<unknown>('post', '/expenses/reports', {
+        reporting_period_start: form.reportingPeriodStart,
+        reporting_period_end: form.reportingPeriodEnd,
+        currency: form.currency
+      });
+
+      return createReportResponseSchema.parse(payload).report.id;
+    }
   });
 
-  const mutation = useMutation({
-    mutationFn: () =>
-      request<{ report: unknown }>('post', '/expenses/reports', {
-        reporting_period_start: draft.reportingPeriodStart,
-        reporting_period_end: draft.reportingPeriodEnd,
-        currency: draft.currency
-      })
+  const submitReportMutation = useMutation({
+    mutationFn: (id: string) => request<unknown>('post', `/expenses/reports/${id}/submit`)
   });
 
-  const submitMutation = useMutation({
-    mutationFn: (id: string) => request<{ report: unknown }>('post', `/expenses/reports/${id}/submit`)
-  });
+  const handleSubmit = useCallback(async () => {
+    const reportId = await createReportMutation.mutateAsync(draft);
+    await submitReportMutation.mutateAsync(reportId);
+    resetDraft();
+  }, [createReportMutation, draft, resetDraft, submitReportMutation]);
 
-  const handleSubmit = async () => {
-    const created = await mutation.mutateAsync();
-    const id = (created.report as { id: string }).id;
-    await submitMutation.mutateAsync(id);
-  };
+  const isSaving = createReportMutation.isPending || submitReportMutation.isPending;
+  const hasError = createReportMutation.isError || submitReportMutation.isError;
+  const isFormValid = Boolean(draft.reportingPeriodStart && draft.reportingPeriodEnd && draft.currency);
+  const hasDateError =
+    draft.reportingPeriodStart !== '' &&
+    draft.reportingPeriodEnd !== '' &&
+    draft.reportingPeriodStart > draft.reportingPeriodEnd;
 
   return (
     <section className="employee-portal">
@@ -60,7 +86,9 @@ const EmployeePortal = () => {
             id="reportingPeriodStart"
             type="date"
             value={draft.reportingPeriodStart}
-            onChange={(event) => setDraft((current) => ({ ...current, reportingPeriodStart: event.target.value }))}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, reportingPeriodStart: event.target.value }))
+            }
             required
           />
         </div>
@@ -70,9 +98,12 @@ const EmployeePortal = () => {
             id="reportingPeriodEnd"
             type="date"
             value={draft.reportingPeriodEnd}
-            onChange={(event) => setDraft((current) => ({ ...current, reportingPeriodEnd: event.target.value }))}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, reportingPeriodEnd: event.target.value }))
+            }
             required
           />
+          {hasDateError && <p className="field-error">End date must be on or after the start date.</p>}
         </div>
         <div className="form-row">
           <label htmlFor="currency">Currency</label>
@@ -86,12 +117,10 @@ const EmployeePortal = () => {
             <option value="CAD">CAD</option>
           </select>
         </div>
-        <button type="submit" disabled={mutation.isPending || submitMutation.isPending}>
-          {mutation.isPending || submitMutation.isPending ? 'Submitting…' : 'Create and submit report'}
+        <button type="submit" disabled={isSaving || !isFormValid || hasDateError}>
+          {isSaving ? 'Submitting…' : 'Create and submit report'}
         </button>
-        {(mutation.isError || submitMutation.isError) && (
-          <p className="error">Unable to submit report. Please try again.</p>
-        )}
+        {hasError && <p className="error">Unable to submit report. Please try again.</p>}
       </form>
     </section>
   );

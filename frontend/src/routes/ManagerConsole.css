@@ -23,6 +23,11 @@
   gap: 1rem;
 }
 
+.manager-console__error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 .manager-console__list article {
   background: #ffffff;
   border-radius: 1rem;

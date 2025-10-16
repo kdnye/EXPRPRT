@@ -1,24 +1,31 @@
 import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
 import { request } from '../api/client';
 import SummaryCard from '../components/SummaryCard';
 import './FinanceConsole.css';
 
-interface FinanceBatch {
-  id: string;
-  reference: string;
-  totalReports: number;
-  totalAmount: string;
-  status: string;
-  exportedAt?: string;
-}
+const financeBatchSchema = z.object({
+  id: z.string(),
+  reference: z.string(),
+  totalReports: z.number(),
+  totalAmount: z.string(),
+  status: z.string(),
+  exportedAt: z.string().optional()
+});
+
+const financeBatchResponseSchema = z.object({
+  batches: z.array(financeBatchSchema)
+});
+
+type FinanceBatch = z.infer<typeof financeBatchSchema>;
 
 const fetchBatches = async () => {
-  const data = await request<{ batches: FinanceBatch[] }>('get', '/finance/batches');
-  return data.batches;
+  const payload = await request<unknown>('get', '/finance/batches');
+  return financeBatchResponseSchema.parse(payload).batches;
 };
 
 const FinanceConsole = () => {
-  const { data = [], isLoading } = useQuery({ queryKey: ['finance-batches'], queryFn: fetchBatches });
+  const { data = [], isLoading, isError } = useQuery({ queryKey: ['finance-batches'], queryFn: fetchBatches });
 
   return (
     <section className="finance-console">
@@ -42,6 +49,13 @@ const FinanceConsole = () => {
           </tr>
         </thead>
         <tbody>
+          {isError && (
+            <tr>
+              <td colSpan={5} className="finance-console__error">
+                Unable to load finance batches.
+              </td>
+            </tr>
+          )}
           {data.map((batch) => (
             <tr key={batch.id}>
               <td>{batch.reference}</td>
