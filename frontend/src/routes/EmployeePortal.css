@@ -53,6 +53,12 @@
   font-size: 1rem;
 }
 
+.field-error {
+  color: #b91c1c;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
 button[type='submit'] {
   background-color: #1c53a1;
   color: #ffffff;

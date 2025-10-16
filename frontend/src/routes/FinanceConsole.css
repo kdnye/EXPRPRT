@@ -47,3 +47,9 @@ tbody td {
 tbody tr:nth-child(even) {
   background-color: rgba(243, 248, 255, 0.6);
 }
+
+.finance-console__error {
+  color: #b91c1c;
+  font-weight: 600;
+  text-align: center;
+}

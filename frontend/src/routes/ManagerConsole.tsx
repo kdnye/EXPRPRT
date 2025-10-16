@@ -1,23 +1,30 @@
 import { useQuery } from '@tanstack/react-query';
+import { z } from 'zod';
 import { request } from '../api/client';
 import SummaryCard from '../components/SummaryCard';
 import './ManagerConsole.css';
 
-interface ManagerQueueItem {
-  id: string;
-  employee: string;
-  submittedAt: string;
-  total: string;
-  policyFlags: string[];
-}
+const managerQueueItemSchema = z.object({
+  id: z.string(),
+  employee: z.string(),
+  submittedAt: z.string(),
+  total: z.string(),
+  policyFlags: z.array(z.string())
+});
+
+const managerQueueResponseSchema = z.object({
+  queue: z.array(managerQueueItemSchema)
+});
+
+type ManagerQueueItem = z.infer<typeof managerQueueItemSchema>;
 
 const fetchQueue = async () => {
-  const data = await request<{ queue: ManagerQueueItem[] }>('get', '/manager/queue');
-  return data.queue;
+  const payload = await request<unknown>('get', '/manager/queue');
+  return managerQueueResponseSchema.parse(payload).queue;
 };
 
 const ManagerConsole = () => {
-  const { data = [], isLoading } = useQuery({ queryKey: ['manager-queue'], queryFn: fetchQueue });
+  const { data = [], isLoading, isError } = useQuery({ queryKey: ['manager-queue'], queryFn: fetchQueue });
 
   return (
     <section className="manager-console">
@@ -31,6 +38,7 @@ const ManagerConsole = () => {
         <SummaryCard title="Average age" value="1.6 days" />
       </div>
       <div className="manager-console__list">
+        {isError && <p className="manager-console__error">Unable to load pending reports.</p>}
         {data.map((item) => (
           <article key={item.id}>
             <div>
