@@ -7,6 +7,7 @@ use crate::domain::models::{ExpenseCategory, ExpenseItem, PolicyCap};
 pub struct PolicyEvaluation {
     pub is_valid: bool,
     pub violations: Vec<String>,
+    pub warnings: Vec<String>,
 }
 
 impl PolicyEvaluation {
@@ -14,6 +15,7 @@ impl PolicyEvaluation {
         Self {
             is_valid: true,
             violations: Vec::new(),
+            warnings: Vec::new(),
         }
     }
 
@@ -21,7 +23,16 @@ impl PolicyEvaluation {
         Self {
             is_valid: false,
             violations: vec![message.into()],
+            warnings: Vec::new(),
         }
+    }
+
+    pub fn merge(&mut self, other: PolicyEvaluation) {
+        if !other.is_valid {
+            self.is_valid = false;
+        }
+        self.violations.extend(other.violations);
+        self.warnings.extend(other.warnings);
     }
 }
 
@@ -52,6 +63,7 @@ fn check_meal(item: &ExpenseItem, caps: &[PolicyCap]) -> PolicyEvaluation {
         PolicyEvaluation {
             is_valid: false,
             violations,
+            warnings: Vec::new(),
         }
     }
 }

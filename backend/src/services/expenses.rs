@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use chrono::Utc;
 use serde::Deserialize;
@@ -7,8 +7,8 @@ use uuid::Uuid;
 
 use crate::{
     domain::{
-        models::{ExpenseReport, ReportStatus},
-        policy::PolicyEvaluation,
+        models::{ExpenseCategory, ExpenseItem, ExpenseReport, PolicyCap, ReportStatus},
+        policy::{evaluate_item, PolicyEvaluation},
     },
     infrastructure::state::AppState,
 };
@@ -109,7 +109,57 @@ impl ExpenseService {
         if exists == 0 {
             return Err(ServiceError::NotFound);
         }
-        Ok(PolicyEvaluation::ok())
+
+        let item_rows = sqlx::query(
+            r#"
+            SELECT id, report_id, expense_date, category, gl_account_id, description,
+                   attendees, location, amount_cents, reimbursable, payment_method, is_policy_exception
+            FROM expense_items
+            WHERE report_id = $1
+            "#,
+        )
+        .bind(report_id)
+        .fetch_all(&self.state.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        let mut items = Vec::with_capacity(item_rows.len());
+        for row in item_rows {
+            items.push(map_expense_item(row)?);
+        }
+
+        if items.is_empty() {
+            return Ok(PolicyEvaluation::ok());
+        }
+
+        let mut category_keys: HashSet<String> = HashSet::new();
+        for item in &items {
+            category_keys.insert(item.category.as_str().to_string());
+        }
+        let categories: Vec<String> = category_keys.into_iter().collect();
+
+        let cap_rows = if categories.is_empty() {
+            Vec::new()
+        } else {
+            sqlx::query(
+                r#"
+                SELECT id, policy_key, category, limit_type, amount_cents, notes, active_from, active_to
+                FROM policy_caps
+                WHERE category = ANY($1)
+                "#,
+            )
+            .bind(categories)
+            .fetch_all(&self.state.pool)
+            .await
+            .map_err(map_sqlx_error)?
+        };
+
+        let mut caps = Vec::with_capacity(cap_rows.len());
+        for row in cap_rows {
+            caps.push(map_policy_cap(row)?);
+        }
+
+        Ok(aggregate_policy_evaluation(&items, &caps))
     }
 }
 
@@ -129,5 +179,165 @@ fn map_report(row: PgRow) -> ExpenseReport {
         version: row.get("version"),
         created_at: row.get("created_at"),
         updated_at: row.get("updated_at"),
+    }
+}
+
+fn map_expense_item(row: PgRow) -> Result<ExpenseItem, ServiceError> {
+    let category = row
+        .try_get::<String, _>("category")
+        .map_err(map_sqlx_error)?
+        .parse::<ExpenseCategory>()
+        .map_err(ServiceError::Internal)?;
+    Ok(ExpenseItem {
+        id: row.try_get("id").map_err(map_sqlx_error)?,
+        report_id: row.try_get("report_id").map_err(map_sqlx_error)?,
+        expense_date: row.try_get("expense_date").map_err(map_sqlx_error)?,
+        category,
+        gl_account_id: row
+            .try_get::<Option<Uuid>, _>("gl_account_id")
+            .map_err(map_sqlx_error)?,
+        description: row
+            .try_get::<Option<String>, _>("description")
+            .map_err(map_sqlx_error)?,
+        attendees: row
+            .try_get::<Option<String>, _>("attendees")
+            .map_err(map_sqlx_error)?,
+        location: row
+            .try_get::<Option<String>, _>("location")
+            .map_err(map_sqlx_error)?,
+        amount_cents: row
+            .try_get::<i64, _>("amount_cents")
+            .map_err(map_sqlx_error)?,
+        reimbursable: row
+            .try_get::<bool, _>("reimbursable")
+            .map_err(map_sqlx_error)?,
+        payment_method: row
+            .try_get::<Option<String>, _>("payment_method")
+            .map_err(map_sqlx_error)?,
+        is_policy_exception: row
+            .try_get::<bool, _>("is_policy_exception")
+            .map_err(map_sqlx_error)?,
+    })
+}
+
+fn map_policy_cap(row: PgRow) -> Result<PolicyCap, ServiceError> {
+    let category = row
+        .try_get::<String, _>("category")
+        .map_err(map_sqlx_error)?
+        .parse::<ExpenseCategory>()
+        .map_err(ServiceError::Internal)?;
+    Ok(PolicyCap {
+        id: row.try_get("id").map_err(map_sqlx_error)?,
+        policy_key: row.try_get("policy_key").map_err(map_sqlx_error)?,
+        category,
+        limit_type: row
+            .try_get::<String, _>("limit_type")
+            .map_err(map_sqlx_error)?,
+        amount_cents: row
+            .try_get::<i64, _>("amount_cents")
+            .map_err(map_sqlx_error)?,
+        notes: row
+            .try_get::<Option<String>, _>("notes")
+            .map_err(map_sqlx_error)?,
+        active_from: row
+            .try_get::<chrono::NaiveDate, _>("active_from")
+            .map_err(map_sqlx_error)?,
+        active_to: row
+            .try_get::<Option<chrono::NaiveDate>, _>("active_to")
+            .map_err(map_sqlx_error)?,
+    })
+}
+
+fn aggregate_policy_evaluation(items: &[ExpenseItem], caps: &[PolicyCap]) -> PolicyEvaluation {
+    let mut evaluation = PolicyEvaluation::ok();
+
+    for item in items {
+        let item_evaluation = evaluate_item(item, caps);
+        evaluation.merge(item_evaluation);
+        if item.is_policy_exception {
+            evaluation.warnings.push(format!(
+                "Expense item {} marked as a policy exception",
+                item.id
+            ));
+        }
+    }
+
+    evaluation
+}
+
+fn map_sqlx_error(err: sqlx::Error) -> ServiceError {
+    ServiceError::Internal(err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+    use uuid::Uuid;
+
+    fn expense_item(
+        id: Uuid,
+        date: NaiveDate,
+        amount_cents: i64,
+        is_exception: bool,
+    ) -> ExpenseItem {
+        ExpenseItem {
+            id,
+            report_id: Uuid::new_v4(),
+            expense_date: date,
+            category: ExpenseCategory::Meal,
+            gl_account_id: None,
+            description: Some("Test item".to_string()),
+            attendees: None,
+            location: None,
+            amount_cents,
+            reimbursable: true,
+            payment_method: None,
+            is_policy_exception: is_exception,
+        }
+    }
+
+    fn meal_cap(amount_cents: i64, active_from: NaiveDate) -> PolicyCap {
+        PolicyCap {
+            id: Uuid::new_v4(),
+            policy_key: "meal_per_diem".to_string(),
+            category: ExpenseCategory::Meal,
+            limit_type: "per_diem".to_string(),
+            amount_cents,
+            notes: None,
+            active_from,
+            active_to: None,
+        }
+    }
+
+    #[test]
+    fn aggregate_policy_evaluation_passes_for_compliant_items() {
+        let date = NaiveDate::from_ymd_opt(2024, 3, 1).unwrap();
+        let caps = vec![meal_cap(5_000, date)];
+        let items = vec![expense_item(Uuid::new_v4(), date, 4_000, false)];
+
+        let evaluation = aggregate_policy_evaluation(&items, &caps);
+
+        assert!(evaluation.is_valid);
+        assert!(evaluation.violations.is_empty());
+        assert!(evaluation.warnings.is_empty());
+    }
+
+    #[test]
+    fn aggregate_policy_evaluation_flags_violations_and_warnings() {
+        let date = NaiveDate::from_ymd_opt(2024, 4, 1).unwrap();
+        let caps = vec![meal_cap(5_000, date)];
+        let item_id = Uuid::new_v4();
+        let items = vec![expense_item(item_id, date, 7_500, true)];
+
+        let evaluation = aggregate_policy_evaluation(&items, &caps);
+
+        assert!(!evaluation.is_valid);
+        assert!(evaluation
+            .violations
+            .iter()
+            .any(|msg| msg.contains("Meal exceeds per-diem limit")));
+        assert_eq!(evaluation.warnings.len(), 1);
+        assert!(evaluation.warnings[0].contains(item_id.to_string().as_str()));
     }
 }
