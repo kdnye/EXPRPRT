@@ -30,11 +30,12 @@ A full-stack implementation of the Freight Services expense workflow using Rust 
 Install JavaScript dependencies locally after cloning so `node_modules` directories stay on your machine:
 
 ```bash
-npm install       # project-level tooling
-cd frontend && npm install
+./scripts/bootstrap.sh
 ```
 
-Substitute `npm ci` for deterministic installs in CI or reproducible local setups.
+The helper script mirrors our Codespaces/devcontainer bootstrap process by running `npm install` at the repository root and `npm install --prefix frontend` for the client bundle. Substitute `npm ci` for deterministic installs in CI or reproducible local setups.
+
+> When opening the project in GitHub Codespaces or a VS Code Dev Container, dependencies are preinstalled automatically using the same bootstrap script, so the workspace is ready to go on first attach.
 
 ### Environment Configuration
 

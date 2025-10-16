@@ -4,7 +4,7 @@
     "cpus": 4
   },
   "waitFor": "onCreateCommand",
-  "updateContentCommand": "npm install && npm install --prefix frontend",
+  "updateContentCommand": "./scripts/bootstrap.sh",
   "postCreateCommand": "",
   "postAttachCommand": {
     "server": "npm run dev -- --host 0.0.0.0 --port 3000"
