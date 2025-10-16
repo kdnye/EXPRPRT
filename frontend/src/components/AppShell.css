@@ -1,0 +1,86 @@
+.app-shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #1c53a1 0%, #2d78e4 35%, #ffffff 35%);
+  color: #000000;
+}
+
+.app-shell__sidebar {
+  background-color: rgba(28, 83, 161, 0.95);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  gap: 1.5rem;
+}
+
+.app-shell__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.app-shell__brand img {
+  height: 48px;
+  width: auto;
+}
+
+.app-shell__brand h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.app-shell__sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.app-shell__sidebar nav a {
+  color: #ffffff;
+  text-decoration: none;
+  font-family: 'Lato', sans-serif;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.app-shell__sidebar nav a.active,
+.app-shell__sidebar nav a:hover {
+  background-color: rgba(0, 208, 132, 0.2);
+  color: #00d084;
+}
+
+.app-shell__sidebar footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.app-shell__content {
+  background: #f5f7fb;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+@media (max-width: 960px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell__sidebar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .app-shell__content {
+    padding: 1.5rem;
+  }
+}

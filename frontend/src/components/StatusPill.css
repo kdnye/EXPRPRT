@@ -1,0 +1,35 @@
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  font-family: 'Lato', sans-serif;
+}
+
+.status-pill::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.status-pill--online {
+  color: #00d084;
+  background-color: rgba(0, 208, 132, 0.1);
+}
+
+.status-pill--offline {
+  color: #f87171;
+  background-color: rgba(248, 113, 113, 0.15);
+}
+
+.status-pill--syncing {
+  color: #facc15;
+  background-color: rgba(250, 204, 21, 0.15);
+}

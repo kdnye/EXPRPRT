@@ -1,0 +1,44 @@
+[package]
+name = "expense_portal"
+version = "0.1.0"
+edition = "2021"
+authors = ["Freight Services Engineering"]
+description = "Axum-based expense management workflow service"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "expense_portal"
+path = "src/lib.rs"
+
+[[bin]]
+name = "expense_portal"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+axum = { version = "0.7", features = ["macros", "json"] }
+chrono = { version = "0.4", features = ["serde"] }
+jsonwebtoken = "9"
+parking_lot = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_with = { version = "3", features = ["chrono"] }
+sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio-rustls", "postgres", "macros", "migrate", "uuid", "chrono", "json"] }
+thiserror = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+tower = { version = "0.4", features = ["util", "make"] }
+tower-http = { version = "0.4", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+uuid = { version = "1", features = ["serde", "v4"] }
+config = "0.13"
+dotenvy = "0.15"
+bytes = "1"
+futures = "0.3"
+url = "2"
+validator = { version = "0.16", features = ["derive"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
+serde_json = "1"

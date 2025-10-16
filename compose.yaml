@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: expenses
+      POSTGRES_PASSWORD: expenses
+      POSTGRES_DB: expenses
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    environment:
+      RUST_LOG: info
+      EXPENSES__DATABASE__URL: postgres://expenses:expenses@db:5432/expenses
+      EXPENSES__AUTH__JWT_SECRET: dev-admin-secret
+      EXPENSES__STORAGE__PROVIDER: local
+      EXPENSES__STORAGE__LOCAL_PATH: /data/receipts
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+    volumes:
+      - receipts:/data/receipts
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  pgdata:
+  receipts:
