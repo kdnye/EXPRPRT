@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use serde::Deserialize;
-use sqlx::{postgres::PgRow, Row};
+use sqlx::{postgres::PgRow, Postgres, Row, Transaction};
 use uuid::Uuid;
 
 use crate::{
@@ -35,6 +35,12 @@ impl ApprovalService {
         payload: DecisionRequest,
     ) -> Result<Approval, ServiceError> {
         ensure_role(actor, &[Role::Manager, Role::Finance])?;
+        let mut tx = self
+            .state
+            .pool
+            .begin()
+            .await
+            .map_err(|err| ServiceError::Internal(err.to_string()))?;
         let now = Utc::now();
         let approval = sqlx::query(
             "INSERT INTO approvals (id, report_id, approver_id, role, status, comments, policy_exception_notes, created_at)
@@ -50,23 +56,27 @@ impl ApprovalService {
         .bind(payload.policy_exception_notes)
         .bind(now)
         .map(|row: PgRow| map_approval(row))
-        .fetch_one(&self.state.pool)
+        .fetch_one(&mut *tx)
         .await
         .map_err(|err| ServiceError::Internal(err.to_string()))?;
 
         if actor.role == Role::Manager && payload.status == ApprovalStatus::Approved {
-            self.transition_report(report_id, ReportStatus::ManagerApproved)
+            self.transition_report(&mut tx, report_id, ReportStatus::ManagerApproved)
                 .await?;
         }
         if actor.role == Role::Finance && payload.status == ApprovalStatus::Approved {
-            self.transition_report(report_id, ReportStatus::FinanceFinalized)
+            self.transition_report(&mut tx, report_id, ReportStatus::FinanceFinalized)
                 .await?;
         }
+        tx.commit()
+            .await
+            .map_err(|err| ServiceError::Internal(err.to_string()))?;
         Ok(approval)
     }
 
     async fn transition_report(
         &self,
+        tx: &mut Transaction<'_, Postgres>,
         report_id: Uuid,
         status: ReportStatus,
     ) -> Result<(), ServiceError> {
@@ -74,7 +84,7 @@ impl ApprovalService {
             .bind(status.as_str())
             .bind(Utc::now())
             .bind(report_id)
-            .execute(&self.state.pool)
+            .execute(tx.as_mut())
             .await
             .map_err(|err| ServiceError::Internal(err.to_string()))?;
         if result.rows_affected() == 0 {
