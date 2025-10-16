@@ -27,15 +27,21 @@ A full-stack implementation of the Freight Services expense workflow using Rust 
 - Docker (optional, for containerized development)
 - PostgreSQL 15 (local or via Docker Compose)
 
-Install JavaScript dependencies locally after cloning so `node_modules` directories stay on your machine:
+Install dependencies and prepare the database with the shared bootstrap script (it is invoked automatically inside our devcontainer/Codespaces image):
 
 ```bash
 ./scripts/bootstrap.sh
 ```
 
-The helper script mirrors our Codespaces/devcontainer bootstrap process by running `npm install` at the repository root and `npm install --prefix frontend` for the client bundle. Substitute `npm ci` for deterministic installs in CI or reproducible local setups.
+The script installs JavaScript dependencies, launches the PostgreSQL service defined in `compose.yaml`, waits for readiness, and runs the Rust migrator (`cargo run --bin migrator`) so the schema exists before starting the API.
 
-> When opening the project in GitHub Codespaces or a VS Code Dev Container, dependencies are preinstalled automatically using the same bootstrap script, so the workspace is ready to go on first attach.
+Once bootstrapped, start both the Axum API and the Vite dev server with a single command:
+
+```bash
+./scripts/dev-start.sh
+```
+
+The helper keeps the backend and frontend running side by side (Ctrl+C stops both). Because the devcontainer executes the same script on attach, local development and GitHub Codespaces share an identical “one command” workflow.
 
 ### Environment Configuration
 
@@ -62,17 +68,21 @@ Services exposed:
 
 ### Local Backend Workflow
 
+You can still run the backend tooling piecemeal when needed:
+
 ```bash
 cd backend
 cargo fmt
 cargo check
-cargo run --bin migrator  # apply database migrations before starting the API
+cargo run --bin migrator
 cargo run
 ```
 
-The API listens on the host/port defined in configuration (defaults to `0.0.0.0:8080`). SQLx migrations live under `backend/migrations` and must be applied manually (for example with `cargo run --bin migrator` or `cargo sqlx migrate run`) before launching the API.
+The API listens on the host/port defined in configuration (defaults to `0.0.0.0:8080`). SQLx migrations live under `backend/migrations` and are normally handled by `./scripts/bootstrap.sh`, but the commands above remain available for manual control.
 
 ### Local Frontend Workflow
+
+The combined dev script starts Vite automatically, yet the usual commands still work for focused frontend tasks:
 
 ```bash
 cd frontend
@@ -80,7 +90,7 @@ npm install
 npm run dev
 ```
 
-Visit the printed URL (typically <http://localhost:5173>) to access the SPA. The dev server proxies API calls to `VITE_API_BASE` (default `/api`).
+Visit <http://localhost:3000> (forwarded from Vite’s configured host/port) to access the SPA. The dev server proxies API calls to `VITE_API_BASE` (default `/api`).
 
 ## Testing & Quality Gates
 
