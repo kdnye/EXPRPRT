@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
     let storage = storage::build_storage(&config.storage)?;
     let state = Arc::new(AppState::new(Arc::clone(&config), pool, storage));
 
-    let router = api::build_router().layer(Extension(Arc::clone(&state)));
+    let router = api::build_router(Arc::clone(&config)).layer(Extension(Arc::clone(&state)));
 
     let addr: SocketAddr = config.bind_address().parse()?;
     info!(%addr, "starting expense portal api");

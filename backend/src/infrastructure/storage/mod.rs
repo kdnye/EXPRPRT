@@ -21,13 +21,17 @@ pub fn build_storage(config: &StorageConfig) -> anyhow::Result<Arc<dyn StorageBa
     }
 }
 
+pub fn local_storage_root(path: Option<&str>) -> PathBuf {
+    PathBuf::from(path.unwrap_or("./uploads"))
+}
+
 struct LocalStorage {
     root: PathBuf,
 }
 
 impl LocalStorage {
     fn new(path: Option<String>) -> anyhow::Result<Self> {
-        let root = PathBuf::from(path.unwrap_or_else(|| "./uploads".to_string()));
+        let root = local_storage_root(path.as_deref());
         std::fs::create_dir_all(&root)?;
         Ok(Self { root })
     }
