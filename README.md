@@ -20,6 +20,16 @@ Rust 1.74+
 Node.js 20+
 Docker (optional, for containerized development)
 PostgreSQL 15 (local or via Docker Compose)
+
+Install JavaScript dependencies locally after cloning so node_modules directories stay on your machine:
+
+```
+npm install       # project-level tooling
+cd frontend && npm install
+```
+
+Substitute `npm ci` for deterministic installs in CI or reproducible local setups.
+
 Environment configuration
 Copy the sample configuration and adjust as needed:
 
