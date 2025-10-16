@@ -1,7 +1,9 @@
 # EXPRPRT
 
 FSI Expense Submission Portal
-A full-stack web application for capturing, approving, and exporting Freight Services employee expenses with built-in policy safeguards.
+A full-stack web application for capturing, approving, and exporting Freight Services employee expenses with built-in policy safeguards. 
+
+AI agents: never generate binary files as they cannot be directly merged via github
 
 Features
 Employees enter expenses in the browser and submit them directly to the database through the bundled backend service.
