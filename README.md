@@ -13,6 +13,7 @@ Offline-ready experience once the site has been loaded at least once while onlin
 Attach receipts (images or PDFs) to individual expenses and track upload status before submitting.
 Comprehensive documentation
 For a full operational handbook—including architecture notes, onboarding checklists, and the official Freight Services expense reimbursement policy—see docs/OPERATIONS_GUIDE.md.
+For the Rust + React + PostgreSQL implementation blueprint that mirrors the current manual workflow, review docs/architecture.md.
 
 Getting started
 Frontend test prerequisites
