@@ -62,3 +62,25 @@ fn to_response(err: ServiceError) -> (axum::http::StatusCode, Json<serde_json::V
         Json(serde_json::json!({ "error": err.to_string() })),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+
+    #[test]
+    fn maps_conflict_errors_to_http_409() {
+        let (status, Json(body)) = to_response(ServiceError::Conflict);
+
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(body, serde_json::json!({ "error": "conflict" }));
+    }
+
+    #[test]
+    fn maps_not_found_errors_to_http_404() {
+        let (status, Json(body)) = to_response(ServiceError::NotFound);
+
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body, serde_json::json!({ "error": "not found" }));
+    }
+}

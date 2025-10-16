@@ -68,7 +68,7 @@ impl ExpenseService {
         report_id: Uuid,
     ) -> Result<ExpenseReport, ServiceError> {
         let record = sqlx::query(
-            "UPDATE expense_reports SET status=$1, version=version+1, updated_at=$2 WHERE id=$3 AND employee_id=$4 RETURNING *",
+            "UPDATE expense_reports SET status=$1, version=version+1, updated_at=$2 WHERE id=$3 AND employee_id=$4 AND status='draft' RETURNING *",
         )
         .bind(ReportStatus::Submitted.as_str())
         .bind(Utc::now())
@@ -78,7 +78,25 @@ impl ExpenseService {
         .fetch_optional(&self.state.pool)
         .await
         .map_err(|err| ServiceError::Internal(err.to_string()))?;
-        record.ok_or(ServiceError::NotFound)
+
+        if let Some(record) = record {
+            return Ok(record);
+        }
+
+        let exists = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(1) FROM expense_reports WHERE id = $1 AND employee_id = $2",
+        )
+        .bind(report_id)
+        .bind(actor.employee_id)
+        .fetch_one(&self.state.pool)
+        .await
+        .map_err(|err| ServiceError::Internal(err.to_string()))?;
+
+        if exists == 0 {
+            Err(ServiceError::NotFound)
+        } else {
+            Err(ServiceError::Conflict)
+        }
     }
 
     pub async fn evaluate_report(&self, report_id: Uuid) -> Result<PolicyEvaluation, ServiceError> {
