@@ -1,96 +1,70 @@
-# Freight Services Expense Portal
+# GitHub Codespaces ♥️ React
 
-A full-stack implementation of the Freight Services expense workflow using **Rust (Axum)**, **React + Vite**, and **PostgreSQL**. Employees capture expenses with receipts, managers approve within a shared queue, and finance finalizes batches for NetSuite export while policy controls run end-to-end.
+Welcome to your shiny new Codespace running React! We've got everything fired up and running for you to explore React.
 
-> **Note for contributors:** AI agents and humans alike must avoid generating binary files in this repository. Stick to source code, configuration, and textual assets.
+You've got a blank canvas to work on from a git perspective as well. There's a single initial commit with the what you're seeing right now - where you go from here is up to you!
 
-## Repository structure
+Everything you do here is contained within this one codespace. There is no repository on GitHub yet. If and when you’re ready you can click "Publish Branch" and we’ll create your repository and push up your project. If you were just exploring then and have no further need for this code then you can simply delete your codespace and it's gone forever.
 
-```
-backend/   # Axum API, domain services, SQLx migrations, background jobs
-frontend/  # React single-page application with employee, manager, and finance consoles
-docs/      # Architecture reference material
-```
+This project was bootstrapped for you with [Vite](https://vitejs.dev/).
 
-Key capabilities include:
+## Available Scripts
 
-- Policy-driven validation for per-diem, mileage, and travel class before manager review.
-- Chunked receipt uploads backed by a pluggable storage provider (local filesystem, S3/GCS-ready interface).
-- Manager and finance workflows with optimistic locking and tamper-resistant audit logging.
-- NetSuite batch export stubs ready for credential wiring plus retry-aware job scaffolding.
-- Offline-aware React UI with local draft persistence and service worker caching.
+In the project directory, you can run:
 
-## Getting started
+### `npm start`
 
-### Prerequisites
+We've already run this for you in the `Codespaces: server` terminal window below. If you need to stop the server for any reason you can just run `npm start` again to bring it back online.
 
-- Rust 1.74+
-- Node.js 20+
-- Docker (optional, for containerized development)
-- PostgreSQL 15 (local or via Docker Compose)
+Runs the app in the development mode.\
+Open [http://localhost:3000/](http://localhost:3000/) in the built-in Simple Browser (`Cmd/Ctrl + Shift + P > Simple Browser: Show`) to view your running application.
 
-### Environment configuration
+The page will reload automatically when you make changes.\
+You may also see any lint errors in the console.
 
-Copy the sample configuration and adjust as needed:
+### `npm test`
 
-```bash
-cp .env.example .env
-```
+Launches the test runner in the interactive watch mode.\
+See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
-All backend settings use the `EXPENSES__` prefix and are parsed by `backend/src/infrastructure/config.rs`. Frontend builds read `VITE_` variables at compile time and defer to runtime overrides via HTML meta tags or `window.__FSI_EXPENSES_CONFIG__`.
+### `npm run build`
 
-### Run everything with Docker Compose
+Builds the app for production to the `build` folder.\
+It correctly bundles React in production mode and optimizes the build for the best performance.
 
-```bash
-docker compose up --build
-```
+The build is minified and the filenames include the hashes.\
+Your app is ready to be deployed!
 
-Services exposed:
+See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-- API: http://localhost:8080
-- Frontend: http://localhost:3000
-- PostgreSQL: localhost:5432 (credentials `expenses` / `expenses` by default)
+## Learn More
 
-Receipts uploaded during development are written to the `receipts` named volume.
+You can learn more in the [Vite documentation](https://vitejs.dev/guide/).
 
-### Local backend workflow
+To learn Vitest, a Vite-native testing framework, go to [Vitest documentation](https://vitest.dev/guide/)
 
-```bash
-cd backend
-cargo fmt
-cargo check
-cargo sqlx migrate run # requires DATABASE_URL
-cargo run
-```
+To learn React, check out the [React documentation](https://reactjs.org/).
 
-The API listens on the host/port defined in configuration (defaults to `0.0.0.0:8080`). SQLx migrations live under `backend/migrations` and are applied automatically at startup.
+### Code Splitting
 
-### Local frontend workflow
+This section has moved here: [https://sambitsahoo.com/blog/vite-code-splitting-that-works.html](https://sambitsahoo.com/blog/vite-code-splitting-that-works.html)
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+### Analyzing the Bundle Size
 
-Visit the printed URL (typically http://localhost:5173) to access the SPA. The dev server proxies API calls to `VITE_API_BASE` (default `/api`).
+This section has moved here: [https://github.com/btd/rollup-plugin-visualizer#rollup-plugin-visualizer](https://github.com/btd/rollup-plugin-visualizer#rollup-plugin-visualizer)
 
-## Testing & quality gates
+### Making a Progressive Web App
 
-- `cargo fmt` / `cargo check` / `cargo test` for the Rust backend.
-- `npm run lint` / `npm run typecheck` / `npm run test` for the React client.
-- CI (recommended) should run formatters, linters, unit tests, and integration tests against an ephemeral PostgreSQL instance.
+This section has moved here: [https://dev.to/hamdankhan364/simplifying-progressive-web-app-pwa-development-with-vite-a-beginners-guide-38cf](https://dev.to/hamdankhan364/simplifying-progressive-web-app-pwa-development-with-vite-a-beginners-guide-38cf)
 
-## Deployment notes
+### Advanced Configuration
 
-- Backend Docker image defined in `backend/Dockerfile` (multi-stage Rust build).
-- Frontend Docker image defined in `frontend/Dockerfile` (Node build + NGINX static host).
-- Environment variables mirror `.env.example` and should be provided via secrets management in production.
-- NetSuite integration is stubbed; replace `infrastructure/netsuite.rs` with a signed REST/SOAP client once credentials are available.
+This section has moved here: [https://vitejs.dev/guide/build.html#advanced-base-options](https://vitejs.dev/guide/build.html#advanced-base-options)
 
-## Additional documentation
+### Deployment
 
-- [`docs/architecture.md`](docs/architecture.md) – Policy mapping, data model, and workflow details that guided this implementation.
-- [`POLICY.md`](POLICY.md) – Source policy document for expense categories, limits, and approval hierarchy.
+This section has moved here: [https://vitejs.dev/guide/build.html](https://vitejs.dev/guide/build.html)
 
-Contributions should include automated tests, documentation updates, and respect for PII/data-safety guidance in `AGENTS.md`.
+### Troubleshooting
+
+This section has moved here: [https://vitejs.dev/guide/troubleshooting.html](https://vitejs.dev/guide/troubleshooting.html)

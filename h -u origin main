@@ -1,0 +1,39 @@
+*   [33md710483[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m Merge EXPRPRT (origin/main) into local main
+[31m|[m[32m\[m  
+* [32m|[m [33m4bfa2b0[m Initial commit
+ [32m/[m  
+[32m|[m * [33m4063a88[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #8 from kdnye/codex/configure-static-file-service-for-receipts
+[32m|[m[32m/[m[34m|[m 
+[32m|[m * [33m82829be[m[33m ([m[1;31morigin/codex/configure-static-file-service-for-receipts[m[33m)[m feat: serve local receipts directory
+[32m|[m[32m/[m  
+*   [33m17d45a0[m Merge pull request #7 from kdnye/codex/modify-submit-update-to-check-draft-status
+[35m|[m[36m\[m  
+[35m|[m * [33mbffba78[m[33m ([m[1;31morigin/codex/modify-submit-update-to-check-draft-status[m[33m)[m fix: block resubmitting processed expense reports
+[35m|[m[35m/[m  
+*   [33m9b43c0e[m Merge pull request #6 from kdnye/codex/implement-batch-insert-with-transaction
+[1;31m|[m[1;32m\[m  
+[1;31m|[m * [33m62af941[m[33m ([m[1;31morigin/codex/implement-batch-insert-with-transaction[m[33m)[m fix: finalize reports within transaction
+[1;31m|[m[1;31m/[m  
+*   [33m6ca9141[m Merge pull request #5 from kdnye/codex/refactor-record_decision-for-transaction-handling
+[1;33m|[m[1;34m\[m  
+[1;33m|[m * [33ma6f1939[m[33m ([m[1;31morigin/codex/refactor-record_decision-for-transaction-handling[m[33m)[m refactor: wrap approval decisions in transaction
+[1;33m|[m[1;33m/[m  
+[1;33m|[m * [33m0c530b4[m[33m ([m[1;31morigin/dependabot/npm_and_yarn/frontend/npm_and_yarn-0a196b466f[m[33m)[m Bump esbuild in /frontend in the npm_and_yarn group across 1 directory
+[1;33m|[m[1;33m/[m  
+[1;33m|[m * [33m581df39[m[33m ([m[1;31morigin/dependabot/cargo/backend/cargo-e0680038c0[m[33m)[m Bump sqlx in /backend in the cargo group across 1 directory
+[1;33m|[m[1;33m/[m  
+*   [33m9769883[m Merge pull request #2 from kdnye/codex/rebuild-expense-portal-without-binary-files
+[31m|[m[32m\[m  
+[31m|[m * [33m1e7bc2c[m[33m ([m[1;31morigin/codex/rebuild-expense-portal-without-binary-files[m[33m)[m feat: scaffold rust react expense portal
+[31m|[m[31m/[m  
+* [33m13fc430[m Add rule to avoid generating binary files
+* [33m8a78842[m Update README with AI agents note
+*   [33m2986ed6[m Merge pull request #1 from kdnye/codex/design-expense-portal-with-rust,-react,-postgresql
+[33m|[m[34m\[m  
+[33m|[m * [33ma21de2c[m[33m ([m[1;31morigin/codex/design-expense-portal-with-rust,-react,-postgresql[m[33m)[m docs: add architecture blueprint for rust react stack
+[33m|[m[33m/[m  
+* [33m95dfb03[m Add files via upload
+* [33mb411ba3[m Create POLICY.md
+* [33me16b247[m Create AGENTS.md with contribution guidelines
+* [33ma6a6e59[m Update README.md
+* [33mf425afb[m Initial commit
