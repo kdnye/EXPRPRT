@@ -1,3 +1,10 @@
+//! Manages managerial and finance approval decisions for expense reports.
+//!
+//! Backing service for the `POST /approvals/:id` route in
+//! `backend/src/api/rest/approvals.rs`, ensuring role-based transitions mirror
+//! the governance spelled out in `POLICY.md` §"Approvals and Reimbursement
+//! Process".
+
 use std::sync::Arc;
 
 use chrono::Utc;
@@ -12,6 +19,11 @@ use crate::{
 
 use super::errors::ServiceError;
 
+/// Manager or finance decision recorded through `POST /approvals/:id`.
+///
+/// Includes optional `policy_exception_notes` so reviewers can document why an
+/// override aligns with the escalation paths in `POLICY.md`
+/// §"Approvals and Reimbursement Process".
 #[derive(Debug, Deserialize)]
 pub struct DecisionRequest {
     pub status: ApprovalStatus,
@@ -19,15 +31,36 @@ pub struct DecisionRequest {
     pub policy_exception_notes: Option<String>,
 }
 
+/// Service coordinating approval persistence and report status transitions.
 pub struct ApprovalService {
     pub state: Arc<AppState>,
 }
 
 impl ApprovalService {
+    /// Constructs the service using the shared database connection pool.
     pub fn new(state: Arc<AppState>) -> Self {
         Self { state }
     }
 
+    /// Records a manager or finance decision and transitions report state when
+    /// appropriate.
+    ///
+    /// * `actor` — authenticated approver; role is validated against
+    ///   `Role::Manager` or `Role::Finance` per `POLICY.md`
+    ///   §"Approvals and Reimbursement Process".
+    /// * `report_id` — target report awaiting action.
+    /// * `payload` — desired decision, optional comments, and policy exception
+    ///   rationale for audit.
+    ///
+    /// Side effects:
+    /// * Persists an `Approval` row and ensures history capture.
+    /// * Promotes report status to `ReportStatus::ManagerApproved` or
+    ///   `ReportStatus::FinanceFinalized`, coordinating hand-offs to the
+    ///   finance export pipeline implemented in `FinanceService`.
+    ///
+    /// Fails with `ServiceError::Forbidden` when the actor's role is outside of
+    /// the allowed reviewers, leveraging the same `Role` model used elsewhere
+    /// in the domain.
     pub async fn record_decision(
         &self,
         actor: &AuthenticatedUser,

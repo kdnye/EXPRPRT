@@ -1,3 +1,10 @@
+//! Coordinates expense report submission and policy evaluation workflows.
+//!
+//! This service powers the REST handlers mounted under `/reports`,
+//! `/reports/:id/submit`, and `/reports/:id/policy` in
+//! `backend/src/api/rest/expenses.rs`, stitching together persistence and
+//! domain policy checks so UI flows can surface actionable results.
+
 use std::{collections::HashSet, sync::Arc};
 
 use chrono::Utc;
@@ -15,6 +22,11 @@ use crate::{
 
 use super::errors::ServiceError;
 
+/// Request payload accepted by `POST /reports` for starting a draft report.
+///
+/// The reporting period window is later enforced against the approval flow
+/// described in `POLICY.md` §"Approvals and Reimbursement Process" so finance
+/// reviewers can reconcile period-close timelines.
 #[derive(Debug, Deserialize)]
 pub struct CreateReportRequest {
     pub reporting_period_start: chrono::NaiveDate,
@@ -22,15 +34,30 @@ pub struct CreateReportRequest {
     pub currency: String,
 }
 
+/// Business façade around persistence and policy evaluation required to move
+/// an expense report from draft through submission.
 pub struct ExpenseService {
     pub state: Arc<AppState>,
 }
 
 impl ExpenseService {
+    /// Builds a new expense service with the shared application state holding
+    /// database pools and policy caches.
     pub fn new(state: Arc<AppState>) -> Self {
         Self { state }
     }
 
+    /// Creates a draft expense report for the authenticated employee.
+    ///
+    /// * `actor` — employee identity from the session, used to scope the new
+    ///   record.
+    /// * `payload` — reporting window and currency details supplied by the UI.
+    ///
+    /// Side effects:
+    /// * Persists a `ReportStatus::Draft` row and initializes totals to zero.
+    /// * Establishes the temporal boundaries referenced by
+    ///   `POLICY.md` §"Approvals and Reimbursement Process" and subsequent
+    ///   manager reviews.
     pub async fn create_report(
         &self,
         actor: &crate::infrastructure::auth::AuthenticatedUser,
@@ -62,6 +89,16 @@ impl ExpenseService {
         Ok(record)
     }
 
+    /// Submits a draft report for approval by promoting it to
+    /// `ReportStatus::Submitted`.
+    ///
+    /// * `actor` — employee requesting submission; must own the report.
+    /// * `report_id` — identifier for the draft being submitted.
+    ///
+    /// The transition unlocks the manager approval gate noted in
+    /// `POLICY.md` §"Approvals and Reimbursement Process". If the actor no
+    /// longer owns the report or the status has changed, conflicts are surfaced
+    /// back to the REST caller for UI resolution.
     pub async fn submit_report(
         &self,
         actor: &crate::infrastructure::auth::AuthenticatedUser,
@@ -99,6 +136,18 @@ impl ExpenseService {
         }
     }
 
+    /// Evaluates all items in the specified report against the policy engine.
+    ///
+    /// * `report_id` — identifies which report to aggregate.
+    ///
+    /// Side effects:
+    /// * Reads the associated items and applicable `PolicyCap` records.
+    /// * Delegates per-item checks to `domain::policy::evaluate_item`, which
+    ///   encodes rules such as meal per-diem limits documented in
+    ///   `POLICY.md` §"Meals" and mileage thresholds in §"Other Transportation".
+    ///
+    /// Returns a merged `PolicyEvaluation` describing violations and warnings
+    /// that upstream REST handlers serialize for the UI.
     pub async fn evaluate_report(&self, report_id: Uuid) -> Result<PolicyEvaluation, ServiceError> {
         let exists =
             sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM expense_reports WHERE id = $1")
