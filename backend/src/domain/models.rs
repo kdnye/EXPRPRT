@@ -1,11 +1,11 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use sqlx::FromRow;
-use std::str::FromStr;
+use sqlx::{FromRow, Type};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Type)]
+#[sqlx(type_name = "employee_role", rename_all = "snake_case")]
 pub enum Role {
     Employee,
     Manager,
@@ -24,25 +24,6 @@ impl Role {
     }
 }
 
-impl FromStr for Role {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "employee" => Ok(Role::Employee),
-            "manager" => Ok(Role::Manager),
-            "finance" => Ok(Role::Finance),
-            "admin" => Ok(Role::Admin),
-            other => Err(format!("unknown role {other}")),
-        }
-    }
-}
-
-impl From<Role> for String {
-    fn from(role: Role) -> Self {
-        role.as_str().to_string()
-    }
-}
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Employee {
     pub id: Uuid,
@@ -53,7 +34,8 @@ pub struct Employee {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Type)]
+#[sqlx(type_name = "report_status", rename_all = "snake_case")]
 pub enum ReportStatus {
     Draft,
     Submitted,
@@ -76,27 +58,6 @@ impl ReportStatus {
     }
 }
 
-impl FromStr for ReportStatus {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "draft" => Ok(ReportStatus::Draft),
-            "submitted" => Ok(ReportStatus::Submitted),
-            "manager_approved" => Ok(ReportStatus::ManagerApproved),
-            "finance_finalized" => Ok(ReportStatus::FinanceFinalized),
-            "needs_changes" => Ok(ReportStatus::NeedsChanges),
-            "denied" => Ok(ReportStatus::Denied),
-            other => Err(format!("unknown report status {other}")),
-        }
-    }
-}
-
-impl From<ReportStatus> for String {
-    fn from(status: ReportStatus) -> Self {
-        status.as_str().to_string()
-    }
-}
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct ExpenseReport {
@@ -113,7 +74,8 @@ pub struct ExpenseReport {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Type)]
+#[sqlx(type_name = "expense_category", rename_all = "snake_case")]
 pub enum ExpenseCategory {
     Airfare,
     Lodging,
@@ -138,28 +100,6 @@ impl ExpenseCategory {
     }
 }
 
-impl FromStr for ExpenseCategory {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "airfare" => Ok(ExpenseCategory::Airfare),
-            "lodging" => Ok(ExpenseCategory::Lodging),
-            "meal" => Ok(ExpenseCategory::Meal),
-            "ground_transport" => Ok(ExpenseCategory::GroundTransport),
-            "mileage" => Ok(ExpenseCategory::Mileage),
-            "supplies" => Ok(ExpenseCategory::Supplies),
-            "other" => Ok(ExpenseCategory::Other),
-            other => Err(format!("unknown expense category {other}")),
-        }
-    }
-}
-
-impl From<ExpenseCategory> for String {
-    fn from(category: ExpenseCategory) -> Self {
-        category.as_str().to_string()
-    }
-}
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct ExpenseItem {
     pub id: Uuid,
@@ -188,7 +128,8 @@ pub struct Receipt {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Type)]
+#[sqlx(type_name = "approval_status", rename_all = "snake_case")]
 pub enum ApprovalStatus {
     Approved,
     Denied,
@@ -205,24 +146,6 @@ impl ApprovalStatus {
     }
 }
 
-impl FromStr for ApprovalStatus {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "approved" => Ok(ApprovalStatus::Approved),
-            "denied" => Ok(ApprovalStatus::Denied),
-            "needs_changes" => Ok(ApprovalStatus::NeedsChanges),
-            other => Err(format!("unknown approval status {other}")),
-        }
-    }
-}
-
-impl From<ApprovalStatus> for String {
-    fn from(status: ApprovalStatus) -> Self {
-        status.as_str().to_string()
-    }
-}
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Approval {
     pub id: Uuid,

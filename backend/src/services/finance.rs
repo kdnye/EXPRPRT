@@ -59,7 +59,7 @@ impl FinanceService {
         let mut lines = Vec::new();
         for (idx, report_id) in payload.report_ids.iter().enumerate() {
             sqlx::query("UPDATE expense_reports SET status=$1 WHERE id=$2")
-                .bind(ReportStatus::FinanceFinalized.as_str())
+                .bind(ReportStatus::FinanceFinalized)
                 .bind(report_id)
                 .execute(tx.as_mut())
                 .await

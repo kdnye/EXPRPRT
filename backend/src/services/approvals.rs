@@ -50,8 +50,8 @@ impl ApprovalService {
         .bind(Uuid::new_v4())
         .bind(report_id)
         .bind(actor.employee_id)
-        .bind(String::from(actor.role.clone()))
-        .bind(payload.status.as_str())
+        .bind(actor.role)
+        .bind(payload.status)
         .bind(payload.comments)
         .bind(payload.policy_exception_notes)
         .bind(now)
@@ -81,7 +81,7 @@ impl ApprovalService {
         status: ReportStatus,
     ) -> Result<(), ServiceError> {
         let result = sqlx::query("UPDATE expense_reports SET status=$1, updated_at=$2 WHERE id=$3")
-            .bind(status.as_str())
+            .bind(status)
             .bind(Utc::now())
             .bind(report_id)
             .execute(tx.as_mut())
@@ -107,14 +107,8 @@ fn map_approval(row: PgRow) -> Approval {
         id: row.get("id"),
         report_id: row.get("report_id"),
         approver_id: row.get("approver_id"),
-        role: row
-            .get::<String, _>("role")
-            .parse::<Role>()
-            .unwrap_or(Role::Employee),
-        status: row
-            .get::<String, _>("status")
-            .parse::<ApprovalStatus>()
-            .unwrap_or(ApprovalStatus::NeedsChanges),
+        role: row.get("role"),
+        status: row.get("status"),
         comments: row.get("comments"),
         policy_exception_notes: row.get("policy_exception_notes"),
         created_at: row.get("created_at"),

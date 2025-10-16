@@ -48,7 +48,7 @@ impl ExpenseService {
         .bind(actor.employee_id)
         .bind(payload.reporting_period_start)
         .bind(payload.reporting_period_end)
-        .bind(status.as_str())
+        .bind(status)
         .bind(0_i64)
         .bind(0_i64)
         .bind(payload.currency)
@@ -70,7 +70,7 @@ impl ExpenseService {
         let record = sqlx::query(
             "UPDATE expense_reports SET status=$1, version=version+1, updated_at=$2 WHERE id=$3 AND employee_id=$4 AND status='draft' RETURNING *",
         )
-        .bind(ReportStatus::Submitted.as_str())
+        .bind(ReportStatus::Submitted)
         .bind(Utc::now())
         .bind(report_id)
         .bind(actor.employee_id)
@@ -132,11 +132,11 @@ impl ExpenseService {
             return Ok(PolicyEvaluation::ok());
         }
 
-        let mut category_keys: HashSet<String> = HashSet::new();
+        let mut category_keys: HashSet<ExpenseCategory> = HashSet::new();
         for item in &items {
-            category_keys.insert(item.category.as_str().to_string());
+            category_keys.insert(item.category);
         }
-        let categories: Vec<String> = category_keys.into_iter().collect();
+        let categories: Vec<ExpenseCategory> = category_keys.into_iter().collect();
 
         let cap_rows = if categories.is_empty() {
             Vec::new()
@@ -169,10 +169,7 @@ fn map_report(row: PgRow) -> ExpenseReport {
         employee_id: row.get("employee_id"),
         reporting_period_start: row.get("reporting_period_start"),
         reporting_period_end: row.get("reporting_period_end"),
-        status: row
-            .get::<String, _>("status")
-            .parse::<ReportStatus>()
-            .unwrap_or(ReportStatus::Draft),
+        status: row.get("status"),
         total_amount_cents: row.get("total_amount_cents"),
         total_reimbursable_cents: row.get("total_reimbursable_cents"),
         currency: row.get("currency"),
@@ -184,10 +181,8 @@ fn map_report(row: PgRow) -> ExpenseReport {
 
 fn map_expense_item(row: PgRow) -> Result<ExpenseItem, ServiceError> {
     let category = row
-        .try_get::<String, _>("category")
-        .map_err(map_sqlx_error)?
-        .parse::<ExpenseCategory>()
-        .map_err(ServiceError::Internal)?;
+        .try_get::<ExpenseCategory, _>("category")
+        .map_err(map_sqlx_error)?;
     Ok(ExpenseItem {
         id: row.try_get("id").map_err(map_sqlx_error)?,
         report_id: row.try_get("report_id").map_err(map_sqlx_error)?,
@@ -222,10 +217,8 @@ fn map_expense_item(row: PgRow) -> Result<ExpenseItem, ServiceError> {
 
 fn map_policy_cap(row: PgRow) -> Result<PolicyCap, ServiceError> {
     let category = row
-        .try_get::<String, _>("category")
-        .map_err(map_sqlx_error)?
-        .parse::<ExpenseCategory>()
-        .map_err(ServiceError::Internal)?;
+        .try_get::<ExpenseCategory, _>("category")
+        .map_err(map_sqlx_error)?;
     Ok(PolicyCap {
         id: row.try_get("id").map_err(map_sqlx_error)?,
         policy_key: row.try_get("policy_key").map_err(map_sqlx_error)?,
