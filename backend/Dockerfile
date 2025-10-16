@@ -1,6 +1,15 @@
 FROM rust:1.74 as builder
 WORKDIR /app
+
+# Pre-fetch and compile dependencies by building a minimal binary. This allows
+# later Docker builds to reuse the cached dependency layer when only source
+# files change.
 COPY Cargo.toml Cargo.lock ./
+RUN mkdir src \
+    && printf 'fn main() {}\n' > src/main.rs \
+    && cargo build --release \
+    && rm -rf src
+
 COPY src ./src
 COPY migrations ./migrations
 RUN cargo build --release
