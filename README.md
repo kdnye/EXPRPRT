@@ -39,9 +39,9 @@ Local backend workflow
 cd backend
 cargo fmt
 cargo check
-cargo sqlx migrate run # requires DATABASE_URL
+cargo run --bin migrator  # apply database migrations before starting the API
 cargo run
-The API listens on the host/port defined in configuration (defaults to 0.0.0.0:8080). SQLx migrations live under backend/migrations and are applied automatically at startup.
+The API listens on the host/port defined in configuration (defaults to 0.0.0.0:8080). SQLx migrations live under backend/migrations and must be applied manually (for example with `cargo run --bin migrator` or `cargo sqlx migrate run`) before launching the API.
 
 Local frontend workflow
 cd frontend
