@@ -31,4 +31,4 @@ COPY --from=builder /app/target/release/expense_portal /usr/local/bin/expense_po
 COPY migrations ./migrations
 EXPOSE 8080
 ENV RUST_LOG=info
-CMD ["expense_portal"]
+CMD ["expense_portal", "serve"]
