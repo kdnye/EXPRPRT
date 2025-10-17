@@ -1,0 +1,16 @@
+# Reduce build context size for Docker builds
+.git
+.gitignore
+**/.pytest_cache
+**/__pycache__
+**/*.pyc
+**/.mypy_cache
+**/node_modules
+**/dist
+**/build
+**/.venv
+**/target
+.env
+.env.*
+.vscode
+.idea
