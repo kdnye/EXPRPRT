@@ -67,10 +67,15 @@ fn unauthorized() -> (StatusCode, Json<serde_json::Value>) {
 }
 
 fn to_response(err: ServiceError) -> (StatusCode, Json<serde_json::Value>) {
-    (
-        err.status_code(),
-        Json(serde_json::json!({ "error": err.to_string() })),
-    )
+    let status = err.status_code();
+    let body = match err {
+        ServiceError::Internal(e) => {
+            tracing::error!("Internal error: {}", e);
+            serde_json::json!({ "error": "internal_server_error" })
+        }
+        _ => serde_json::json!({ "error": err.to_string() }),
+    };
+    (status, Json(body))
 }
 
 #[cfg(test)]
