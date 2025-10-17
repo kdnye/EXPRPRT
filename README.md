@@ -82,6 +82,9 @@ Services exposed:
 - PostgreSQL: `localhost:5432` (credentials `expenses / expenses` by default)
 - Receipts uploaded during development are written to the `receipts` named volume
 
+If port `5432` is already bound on your machine, set `POSTGRES_HOST_PORT` in `.env`
+before running Compose (for example `POSTGRES_HOST_PORT=55432`).
+
 ### Local Backend Workflow
 
 You can still run the backend tooling piecemeal when needed:
