@@ -12,9 +12,9 @@ RUN apt-get update \
 # files change.
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir -p src/bin \
-    && printf 'pub fn placeholder() {}\n' > src/lib.rs \
-    && printf 'fn main() {}\n' > src/main.rs \
-    && printf 'fn main() {}\n' > src/bin/migrator.rs \
+    && echo 'pub fn placeholder() {}' > src/lib.rs \
+    && echo 'fn main() {}' > src/main.rs \
+    && echo 'fn main() {}' > src/bin/migrator.rs \
     && cargo build --release --locked \
     && rm -rf src
 
