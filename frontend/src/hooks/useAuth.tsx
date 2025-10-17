@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     window.addEventListener('storage', handleStorage);
-    window.addEventListener(AUTH_LOGOUT_EVENT as unknown as keyof WindowEventMap, handleLogoutEvent as EventListener);
+    window.addEventListener(AUTH_LOGOUT_EVENT, handleLogoutEvent);
 
     return () => {
       window.removeEventListener('storage', handleStorage);
