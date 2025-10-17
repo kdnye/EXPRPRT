@@ -78,14 +78,14 @@ docker compose up --build
 Services exposed:
 
 - API: <http://localhost:8080>
-- Frontend: <http://localhost:3000>
+- Frontend: <http://localhost:4173>
 - PostgreSQL: `localhost:5432` (credentials `expenses / expenses` by default)
 - Receipts uploaded during development are written to the `receipts` named volume
 
 If port `5432` is already bound on your machine, set `POSTGRES_HOST_PORT` in `.env`
 before running Compose (for example `POSTGRES_HOST_PORT=55432`). Likewise, override
-`FRONTEND_HOST_PORT` to remap the NGINX container to a free host port when `3000`
-is already taken (for example `FRONTEND_HOST_PORT=4300`).
+`FRONTEND_HOST_PORT` to remap the NGINX container to a free host port when the default
+`4173` is already taken (for example `FRONTEND_HOST_PORT=4300`).
 
 ### Local Backend Workflow
 
