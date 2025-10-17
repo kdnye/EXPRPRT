@@ -8,6 +8,7 @@ import ManagerConsole from './routes/ManagerConsole';
 import FinanceConsole from './routes/FinanceConsole';
 import './styles/global.css';
 import queryClient from './api/queryClient';
+import { AuthProvider } from './hooks/useAuth';
 
 const router = createBrowserRouter([
   {
@@ -23,8 +24,10 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </AuthProvider>
   </React.StrictMode>
 );

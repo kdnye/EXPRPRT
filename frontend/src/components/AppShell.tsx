@@ -1,4 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import LoginPrompt from './LoginPrompt';
 import './AppShell.css';
 import StatusPill from './StatusPill';
 
@@ -9,6 +11,30 @@ const navItems = [
 ];
 
 const AppShell = () => {
+  const { isAuthenticated, isReady } = useAuth();
+
+  if (!isReady) {
+    return (
+      <div className="app-shell__loading" role="status">
+        Checking session…
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="app-shell__login">
+        <div className="app-shell__login-card">
+          <header className="app-shell__brand">
+            <img src="/fsi-logo (1).png" alt="Freight Services logo" />
+            <h1>FSI Expenses</h1>
+          </header>
+          <LoginPrompt />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <aside className="app-shell__sidebar">

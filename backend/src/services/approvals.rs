@@ -147,3 +147,32 @@ fn map_approval(row: PgRow) -> Approval {
         created_at: row.get("created_at"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::infrastructure::auth::AuthenticatedUser;
+
+    fn actor(role: Role) -> AuthenticatedUser {
+        AuthenticatedUser {
+            employee_id: uuid::Uuid::new_v4(),
+            role,
+        }
+    }
+
+    #[test]
+    fn ensure_role_permits_authorized_actor() {
+        let user = actor(Role::Manager);
+
+        assert!(ensure_role(&user, &[Role::Manager, Role::Finance]).is_ok());
+    }
+
+    #[test]
+    fn ensure_role_rejects_unlisted_role() {
+        let user = actor(Role::Employee);
+
+        let result = ensure_role(&user, &[Role::Manager, Role::Finance]);
+
+        assert!(matches!(result, Err(ServiceError::Forbidden)));
+    }
+}

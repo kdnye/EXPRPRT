@@ -38,6 +38,8 @@ pub struct AuthConfig {
     pub jwt_secret: String,
     #[serde(default = "default_jwt_ttl")]
     pub jwt_ttl_seconds: u64,
+    #[serde(default)]
+    pub developer_credential: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -83,6 +85,7 @@ impl Default for AuthConfig {
         Self {
             jwt_secret: String::new(),
             jwt_ttl_seconds: default_jwt_ttl(),
+            developer_credential: String::new(),
         }
     }
 }
