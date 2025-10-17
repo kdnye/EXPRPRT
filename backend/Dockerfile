@@ -10,8 +10,10 @@ RUN apt-get update \
 # later Docker builds to reuse the cached dependency layer when only source
 # files change.
 COPY Cargo.toml Cargo.lock ./
-RUN mkdir src \
+RUN mkdir -p src/bin \
+    && printf 'pub fn placeholder() {}\\n' > src/lib.rs \
     && printf 'fn main() {}\\n' > src/main.rs \
+    && printf 'fn main() {}\\n' > src/bin/migrator.rs \
     && cargo -Zedition2024 build --release \
     && rm -rf src
 
