@@ -69,6 +69,11 @@ cp .env.example .env
 
 All backend settings use the `EXPENSES__` prefix and are parsed by `backend/src/infrastructure/config.rs`. Frontend builds read `VITE_` variables at compile time and defer to runtime overrides via HTML meta tags or `window.__FSI_EXPENSES_CONFIG__`.
 
+Key authentication variables:
+
+- `EXPENSES__AUTH__JWT_SECRET` – symmetric secret used to sign issued JWTs.
+- `EXPENSES__AUTH__DEVELOPER_CREDENTIAL` – shared developer credential accepted by `POST /api/auth/login` for local usage.
+
 ### Run Everything with Docker Compose
 
 ```bash

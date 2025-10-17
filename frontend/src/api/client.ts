@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { AUTH_LOGOUT_EVENT, AUTH_TOKEN_STORAGE_KEY } from '../hooks/useAuth';
 
 type HttpMethod = 'get' | 'post' | 'put' | 'delete';
 
@@ -15,6 +16,28 @@ const client = axios.create({
   baseURL: apiBase || '/api',
   withCredentials: true
 });
+
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  if (token) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      if (localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)) {
+        localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+        window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const request = async <T>(method: HttpMethod, url: string, data?: unknown) => {
   const response = await client.request<T>({ method, url, data });

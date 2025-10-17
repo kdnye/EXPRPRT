@@ -6,6 +6,31 @@
   color: #000000;
 }
 
+.app-shell__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 1.125rem;
+  color: #1f2937;
+}
+
+.app-shell__login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #e5edff 0%, #f3f4f6 60%);
+  padding: 2rem;
+}
+
+.app-shell__login-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
 .app-shell__sidebar {
   background-color: rgba(28, 83, 161, 0.95);
   color: #ffffff;
