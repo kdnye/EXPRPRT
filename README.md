@@ -43,6 +43,22 @@ Once bootstrapped, start both the Axum API and the Vite dev server with a single
 
 The helper keeps the backend and frontend running side by side (Ctrl+C stops both). Because the devcontainer executes the same script on attach, local development and GitHub Codespaces share an identical “one command” workflow.
 
+### Syncing an Existing Checkout
+
+When you are returning to an existing workstation (for example, a local WSL install) run the following to pull the latest code, keep your `.env`, refresh dependencies, and restart the dev servers:
+
+```bash
+cd ~/EXPRPRT
+git fetch --all --prune
+git switch main
+git reset --hard origin/main
+[ -f .env ] || cp .env.example .env
+./scripts/bootstrap.sh
+./scripts/dev-start.sh
+```
+
+The bootstrap step reinstalls backend and frontend dependencies, applies database migrations, and ensures Dockerized services such as PostgreSQL are running. The `dev-start.sh` helper then brings up both the Axum API and the Vite frontend so you can resume development immediately.
+
 ### Environment Configuration
 
 Copy the sample configuration and adjust as needed:

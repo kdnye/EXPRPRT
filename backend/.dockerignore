@@ -1,0 +1,25 @@
+# Limit backend build context size
+../.git
+../.env
+../.env.*
+../compose.yaml
+../frontend
+../deployment
+../docs
+../scripts
+../templates
+../README.md
+
+# Rust build outputs and caches
+**/target
+**/*.rs.bk
+
+# Python caches (if any tooling runs alongside)
+**/__pycache__
+**/*.pyc
+**/.mypy_cache
+
+# Misc tooling artifacts
+**/.pytest_cache
+**/.ruff_cache
+**/.venv
