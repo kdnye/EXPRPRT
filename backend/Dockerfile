@@ -1,5 +1,6 @@
 FROM rustlang/rust:nightly as builder
 ENV RUSTUP_TOOLCHAIN=nightly
+ENV CARGO_TERM_COLOR=always
 WORKDIR /app
 
 RUN apt-get update \
@@ -14,12 +15,12 @@ RUN mkdir -p src/bin \
     && printf 'pub fn placeholder() {}\\n' > src/lib.rs \
     && printf 'fn main() {}\\n' > src/main.rs \
     && printf 'fn main() {}\\n' > src/bin/migrator.rs \
-    && cargo build --release \
+    && cargo build --release --locked \
     && rm -rf src
 
 COPY src ./src
 COPY migrations ./migrations
-RUN cargo build --release
+RUN cargo build --release --locked
 
 FROM debian:bookworm-slim
 WORKDIR /app
