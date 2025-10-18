@@ -32,6 +32,34 @@ pub struct CreateReportRequest {
     pub reporting_period_start: chrono::NaiveDate,
     pub reporting_period_end: chrono::NaiveDate,
     pub currency: String,
+    #[serde(default)]
+    pub items: Vec<CreateExpenseItem>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct CreateExpenseItem {
+    pub expense_date: chrono::NaiveDate,
+    pub category: ExpenseCategory,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub attendees: Option<String>,
+    #[serde(default)]
+    pub location: Option<String>,
+    pub amount_cents: i64,
+    pub reimbursable: bool,
+    #[serde(default)]
+    pub payment_method: Option<String>,
+    #[serde(default)]
+    pub receipts: Vec<CreateReceiptReference>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct CreateReceiptReference {
+    pub file_key: String,
+    pub file_name: String,
+    pub mime_type: String,
+    pub size_bytes: i64,
 }
 
 /// Business façade around persistence and policy evaluation required to move
@@ -63,9 +91,26 @@ impl ExpenseService {
         actor: &crate::infrastructure::auth::AuthenticatedUser,
         payload: CreateReportRequest,
     ) -> Result<ExpenseReport, ServiceError> {
+        let mut tx = self
+            .state
+            .pool
+            .begin()
+            .await
+            .map_err(|err| ServiceError::Internal(err.to_string()))?;
+
         let id = Uuid::new_v4();
         let now = Utc::now();
         let status = ReportStatus::Draft;
+
+        let CreateReportRequest {
+            reporting_period_start,
+            reporting_period_end,
+            currency,
+            items,
+        } = payload;
+
+        let (total_amount_cents, total_reimbursable_cents) = calculate_totals(&items);
+
         let record = sqlx::query(
             "INSERT INTO expense_reports (id, employee_id, reporting_period_start, reporting_period_end, status, total_amount_cents, total_reimbursable_cents, currency, version, created_at, updated_at)
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
@@ -73,19 +118,64 @@ impl ExpenseService {
         )
         .bind(id)
         .bind(actor.employee_id)
-        .bind(payload.reporting_period_start)
-        .bind(payload.reporting_period_end)
+        .bind(reporting_period_start)
+        .bind(reporting_period_end)
         .bind(status)
-        .bind(0_i64)
-        .bind(0_i64)
-        .bind(payload.currency)
+        .bind(total_amount_cents)
+        .bind(total_reimbursable_cents)
+        .bind(&currency)
         .bind(1_i32)
         .bind(now)
         .bind(now)
         .map(|row: PgRow| map_report(row))
-        .fetch_one(&self.state.pool)
+        .fetch_one(&mut *tx)
         .await
         .map_err(|err| ServiceError::Internal(err.to_string()))?;
+
+        for item in items {
+            let item_id = Uuid::new_v4();
+            sqlx::query(
+                "INSERT INTO expense_items (id, report_id, expense_date, category, gl_account_id, description, attendees, location, amount_cents, reimbursable, payment_method, is_policy_exception)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)",
+            )
+            .bind(item_id)
+            .bind(id)
+            .bind(item.expense_date)
+            .bind(item.category)
+            .bind::<Option<Uuid>>(None)
+            .bind(item.description)
+            .bind(item.attendees)
+            .bind(item.location)
+            .bind(item.amount_cents)
+            .bind(item.reimbursable)
+            .bind(item.payment_method)
+            .bind(false)
+            .execute(&mut *tx)
+            .await
+            .map_err(|err| ServiceError::Internal(err.to_string()))?;
+
+            for receipt in item.receipts {
+                sqlx::query(
+                    "INSERT INTO receipts (id, expense_item_id, file_key, file_name, mime_type, size_bytes, uploaded_by)
+                     VALUES ($1,$2,$3,$4,$5,$6,$7)",
+                )
+                .bind(Uuid::new_v4())
+                .bind(item_id)
+                .bind(receipt.file_key)
+                .bind(receipt.file_name)
+                .bind(receipt.mime_type)
+                .bind(receipt.size_bytes)
+                .bind(actor.employee_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|err| ServiceError::Internal(err.to_string()))?;
+            }
+        }
+
+        tx.commit()
+            .await
+            .map_err(|err| ServiceError::Internal(err.to_string()))?;
+
         Ok(record)
     }
 
@@ -212,6 +302,20 @@ impl ExpenseService {
     }
 }
 
+fn calculate_totals(items: &[CreateExpenseItem]) -> (i64, i64) {
+    let mut total_amount = 0_i64;
+    let mut total_reimbursable = 0_i64;
+
+    for item in items {
+        total_amount += item.amount_cents;
+        if item.reimbursable {
+            total_reimbursable += item.amount_cents;
+        }
+    }
+
+    (total_amount, total_reimbursable)
+}
+
 fn map_report(row: PgRow) -> ExpenseReport {
     ExpenseReport {
         id: row.get("id"),
@@ -315,7 +419,21 @@ fn map_sqlx_error(err: sqlx::Error) -> ServiceError {
 mod tests {
     use super::*;
     use chrono::NaiveDate;
+    use sqlx::{postgres::PgPoolOptions, PgPool};
     use uuid::Uuid;
+
+    use crate::{
+        domain::models::Role,
+        infrastructure::{
+            auth::AuthenticatedUser,
+            config::{
+                AppConfig, AuthConfig, Config, DatabaseConfig, NetSuiteConfig, ReceiptRules,
+                StorageConfig,
+            },
+            state::AppState,
+            storage,
+        },
+    };
 
     fn expense_item(
         id: Uuid,
@@ -381,5 +499,182 @@ mod tests {
             .any(|msg| msg.contains("Meal exceeds per-diem limit")));
         assert_eq!(evaluation.warnings.len(), 1);
         assert!(evaluation.warnings[0].contains(item_id.to_string().as_str()));
+    }
+
+    #[test]
+    fn calculate_totals_splits_reimbursable_amounts() {
+        let date = NaiveDate::from_ymd_opt(2024, 5, 1).unwrap();
+        let items = vec![
+            CreateExpenseItem {
+                expense_date: date,
+                category: ExpenseCategory::Meal,
+                description: None,
+                attendees: None,
+                location: None,
+                amount_cents: 2_500,
+                reimbursable: true,
+                payment_method: None,
+                receipts: Vec::new(),
+            },
+            CreateExpenseItem {
+                expense_date: date,
+                category: ExpenseCategory::Lodging,
+                description: None,
+                attendees: None,
+                location: None,
+                amount_cents: 7_500,
+                reimbursable: false,
+                payment_method: None,
+                receipts: Vec::new(),
+            },
+        ];
+
+        let (total, reimbursable) = calculate_totals(&items);
+
+        assert_eq!(total, 10_000);
+        assert_eq!(reimbursable, 2_500);
+    }
+
+    #[tokio::test]
+    async fn create_report_persists_items_and_receipts() -> anyhow::Result<()> {
+        dotenvy::dotenv().ok();
+        let database_url = std::env::var("DATABASE_URL")
+            .or_else(|_| std::env::var("EXPENSES__DATABASE__URL"))
+            .unwrap_or_else(|_| "postgres://expenses:expenses@localhost:5432/expenses".to_string());
+
+        let pool = match PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&database_url)
+            .await
+        {
+            Ok(pool) => pool,
+            Err(err) => {
+                eprintln!("Skipping create_report_persists_items_and_receipts test: {err}");
+                return Ok(());
+            }
+        };
+
+        sqlx::migrate!("./migrations").run(&pool).await?;
+
+        run_create_report_scenario(pool).await
+    }
+
+    async fn run_create_report_scenario(pool: PgPool) -> anyhow::Result<()> {
+        let employee_id = Uuid::new_v4();
+        sqlx::query(
+            "INSERT INTO employees (id, hr_identifier, manager_id, department, role, created_at)
+             VALUES ($1,$2,$3,$4,$5,$6)",
+        )
+        .bind(employee_id)
+        .bind(format!("EMP{}", Uuid::new_v4().simple()))
+        .bind::<Option<Uuid>>(None)
+        .bind::<Option<String>>(None)
+        .bind(Role::Employee)
+        .bind(chrono::Utc::now())
+        .execute(&pool)
+        .await?;
+
+        let mut storage_config = StorageConfig::default();
+        storage_config.provider = "memory".to_string();
+
+        let config = Arc::new(Config {
+            app: AppConfig::default(),
+            database: DatabaseConfig {
+                url: "postgres://integration".to_string(),
+                max_connections: 5,
+            },
+            auth: AuthConfig {
+                jwt_secret: "integration-secret".to_string(),
+                jwt_ttl_seconds: 3_600,
+                developer_credential: "dev-pass".to_string(),
+            },
+            storage: storage_config,
+            netsuite: NetSuiteConfig::default(),
+            receipts: ReceiptRules::default(),
+        });
+
+        let storage = storage::build_storage(&config.storage)?;
+        let state = Arc::new(AppState::new(Arc::clone(&config), pool.clone(), storage));
+        let service = ExpenseService::new(Arc::clone(&state));
+        let actor = AuthenticatedUser {
+            employee_id,
+            role: Role::Employee,
+        };
+
+        let reporting_period_start = NaiveDate::from_ymd_opt(2024, 5, 1).unwrap();
+        let reporting_period_end = NaiveDate::from_ymd_opt(2024, 5, 31).unwrap();
+        let payload = CreateReportRequest {
+            reporting_period_start,
+            reporting_period_end,
+            currency: "USD".to_string(),
+            items: vec![
+                CreateExpenseItem {
+                    expense_date: reporting_period_start,
+                    category: ExpenseCategory::Meal,
+                    description: Some("Team kickoff lunch".to_string()),
+                    attendees: Some("S. Mills; A. Chen".to_string()),
+                    location: Some("Portland".to_string()),
+                    amount_cents: 4_200,
+                    reimbursable: true,
+                    payment_method: Some("corporate_card".to_string()),
+                    receipts: vec![CreateReceiptReference {
+                        file_key: "draft-receipt-1".to_string(),
+                        file_name: "lunch.pdf".to_string(),
+                        mime_type: "application/pdf".to_string(),
+                        size_bytes: 32_000,
+                    }],
+                },
+                CreateExpenseItem {
+                    expense_date: reporting_period_start,
+                    category: ExpenseCategory::Lodging,
+                    description: Some("Client site lodging".to_string()),
+                    attendees: None,
+                    location: Some("Portland".to_string()),
+                    amount_cents: 18_500,
+                    reimbursable: false,
+                    payment_method: Some("personal_card".to_string()),
+                    receipts: Vec::new(),
+                },
+            ],
+        };
+
+        let report = service.create_report(&actor, payload).await?;
+
+        let stored_items = sqlx::query(
+            "SELECT amount_cents, reimbursable FROM expense_items WHERE report_id = $1",
+        )
+        .bind(report.id)
+        .fetch_all(&pool)
+        .await?;
+
+        assert_eq!(stored_items.len(), 2);
+        assert!(stored_items.iter().any(|row| {
+            row.get::<bool, _>("reimbursable") && row.get::<i64, _>("amount_cents") == 4_200
+        }));
+        assert!(stored_items.iter().any(|row| {
+            !row.get::<bool, _>("reimbursable") && row.get::<i64, _>("amount_cents") == 18_500
+        }));
+
+        let receipt_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(1) FROM receipts r JOIN expense_items i ON r.expense_item_id = i.id WHERE i.report_id = $1",
+        )
+        .bind(report.id)
+        .fetch_one(&pool)
+        .await?;
+
+        assert_eq!(receipt_count, 1);
+        assert_eq!(report.total_amount_cents, 22_700);
+        assert_eq!(report.total_reimbursable_cents, 4_200);
+
+        sqlx::query("DELETE FROM expense_reports WHERE id = $1")
+            .bind(report.id)
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM employees WHERE id = $1")
+            .bind(employee_id)
+            .execute(&pool)
+            .await?;
+
+        Ok(())
     }
 }

@@ -12,7 +12,10 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "types": ["vite/client"],
-    "baseUrl": "./src"
+    "baseUrl": "./src",
+    "paths": {
+      "@/*": ["./*"]
+    }
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.tsx", "src/**/*.test.ts"]

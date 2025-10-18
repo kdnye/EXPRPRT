@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
+import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from 'react';
 import { loadDrafts, removeDraft, upsertDraft } from '../offline/draftStore';
 
 /**
@@ -55,9 +55,15 @@ export const useExpenseDraft = <T extends Record<string, unknown>>(
   const { debounceMs = 400 } = options;
 
   const [draft, setDraft] = useState<T>(() => withPersistedDraft(draftId, createInitialDraft));
+  const skipNextPersistRef = useRef(false);
 
   useEffect(() => {
     if (!canUseStorage()) {
+      return;
+    }
+
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
       return;
     }
 
@@ -75,6 +81,7 @@ export const useExpenseDraft = <T extends Record<string, unknown>>(
   }, [draft, draftId, debounceMs]);
 
   const resetDraft = useCallback(() => {
+    skipNextPersistRef.current = true;
     setDraft(createInitialDraft());
     if (canUseStorage()) {
       removeDraft(draftId);
