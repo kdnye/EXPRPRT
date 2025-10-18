@@ -28,26 +28,33 @@
   background: #ffffff;
   border-radius: 1rem;
   padding: 1.5rem;
-  display: grid;
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
   box-shadow: 0 10px 24px rgba(66, 139, 202, 0.1);
   border: 1px solid rgba(66, 139, 202, 0.15);
 }
 
-.form-row {
+.employee-portal__form-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.form-field {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 
-.form-row label {
+.form-field label {
   font-weight: 600;
   color: #1c53a1;
 }
 
-.form-row input,
-.form-row select {
-  padding: 0.75rem;
+.form-field input,
+.form-field select {
+  padding: 0.7rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(28, 83, 161, 0.3);
   font-size: 1rem;
@@ -59,6 +66,16 @@
   margin: 0;
 }
 
+.employee-portal__validation-summary {
+  background: rgba(185, 28, 28, 0.08);
+  border: 1px solid rgba(185, 28, 28, 0.35);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #7f1d1d;
+  display: grid;
+  gap: 0.35rem;
+}
+
 button[type='submit'] {
   background-color: #1c53a1;
   color: #ffffff;
@@ -68,7 +85,7 @@ button[type='submit'] {
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  justify-self: flex-start;
+  align-self: flex-start;
 }
 
 button[type='submit']:disabled {

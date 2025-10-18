@@ -13,7 +13,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
-import { request } from '../api/client';
+import { request } from '@/api/client';
 import SummaryCard from '../components/SummaryCard';
 import './FinanceConsole.css';
 

@@ -11,7 +11,10 @@ use expense_portal::{
     api,
     domain::models::Role,
     infrastructure::{
-        config::{AppConfig, AuthConfig, Config, DatabaseConfig, NetSuiteConfig, ReceiptRules, StorageConfig},
+        config::{
+            AppConfig, AuthConfig, Config, DatabaseConfig, NetSuiteConfig, ReceiptRules,
+            StorageConfig,
+        },
         state::AppState,
         storage,
     },

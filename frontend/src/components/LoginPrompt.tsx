@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { request } from '../api/client';
+import { request } from '@/api/client';
 import { Role, useAuth } from '../hooks/useAuth';
 import './LoginPrompt.css';
 

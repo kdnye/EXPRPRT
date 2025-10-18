@@ -75,6 +75,7 @@ pub struct ExpenseReport {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Type)]
+#[serde(rename_all = "snake_case")]
 #[sqlx(type_name = "expense_category", rename_all = "snake_case")]
 pub enum ExpenseCategory {
     Airfare,
