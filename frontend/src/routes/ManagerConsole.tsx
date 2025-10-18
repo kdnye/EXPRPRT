@@ -10,33 +10,91 @@
  *   identify exceptions before calling `POST /approvals/:id` in the action
  *   buttons that will be wired to `ApprovalService`.
  */
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { request } from '@/api/client';
 import SummaryCard from '../components/SummaryCard';
 import './ManagerConsole.css';
 
-const managerQueueItemSchema = z.object({
-  id: z.string(),
-  employee: z.string(),
-  submittedAt: z.string(),
-  total: z.string(),
-  policyFlags: z.array(z.string())
+const managerQueueEntrySchema = z.object({
+  report: z.object({
+    id: z.string().uuid(),
+    employeeId: z.string().uuid(),
+    employeeHrIdentifier: z.string(),
+    reportingPeriodStart: z.string(),
+    reportingPeriodEnd: z.string(),
+    submittedAt: z.string(),
+    totalAmountCents: z.number(),
+    totalReimbursableCents: z.number(),
+    currency: z.string()
+  }),
+  lineItems: z.array(
+    z.object({
+      id: z.string().uuid(),
+      reportId: z.string().uuid(),
+      expenseDate: z.string(),
+      category: z.string(),
+      description: z.string().nullable(),
+      amountCents: z.number(),
+      reimbursable: z.boolean(),
+      paymentMethod: z.string().nullable(),
+      isPolicyException: z.boolean()
+    })
+  ),
+  policyFlags: z.array(
+    z.object({
+      itemId: z.string().uuid(),
+      category: z.string(),
+      expenseDate: z.string(),
+      description: z.string().nullable()
+    })
+  )
 });
 
 const managerQueueResponseSchema = z.object({
-  queue: z.array(managerQueueItemSchema)
+  queue: z.array(managerQueueEntrySchema)
 });
 
-type ManagerQueueItem = z.infer<typeof managerQueueItemSchema>;
+type ManagerQueueEntry = z.infer<typeof managerQueueEntrySchema>;
 
 const fetchQueue = async () => {
   const payload = await request<unknown>('get', '/manager/queue');
   return managerQueueResponseSchema.parse(payload).queue;
 };
 
+const formatCurrency = (amountCents: number, currency: string) =>
+  new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amountCents / 100);
+
+const parseDate = (value: string) => (value.length <= 10 ? new Date(`${value}T00:00:00Z`) : new Date(value));
+
+const formatDate = (isoDate: string) =>
+  new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(parseDate(isoDate));
+
 const ManagerConsole = () => {
-  const { data = [], isLoading, isError } = useQuery({ queryKey: ['manager-queue'], queryFn: fetchQueue });
+  const {
+    data = [],
+    isLoading,
+    isError
+  } = useQuery<ManagerQueueEntry[]>({ queryKey: ['manager-queue'], queryFn: fetchQueue });
+
+  const totalFlags = useMemo(
+    () => data.reduce((sum, item) => sum + item.policyFlags.length, 0),
+    [data]
+  );
+
+  const averageAgeDays = useMemo(() => {
+    if (data.length === 0) {
+      return null;
+    }
+    const now = Date.now();
+    const totalDays = data.reduce((sum, item) => {
+      const submitted = new Date(item.report.submittedAt).getTime();
+      const ageMs = Math.max(now - submitted, 0);
+      return sum + ageMs / (1000 * 60 * 60 * 24);
+    }, 0);
+    return totalDays / data.length;
+  }, [data]);
 
   return (
     <section className="manager-console">
@@ -46,30 +104,66 @@ const ManagerConsole = () => {
       </header>
       <div className="manager-console__grid">
         <SummaryCard title="Waiting for review" value={isLoading ? '—' : String(data.length)} />
-        <SummaryCard title="Policy exceptions" value="2" tone="warning" />
-        <SummaryCard title="Average age" value="1.6 days" />
+        <SummaryCard title="Policy exceptions" value={isLoading ? '—' : String(totalFlags)} tone="warning" />
+        <SummaryCard
+          title="Average age"
+          value={
+            isLoading
+              ? '—'
+              : averageAgeDays === null
+                ? '—'
+                : `${averageAgeDays.toFixed(1)} day${averageAgeDays >= 2 ? 's' : ''}`
+          }
+        />
       </div>
       <div className="manager-console__list">
         {isError && <p className="manager-console__error">Unable to load pending reports.</p>}
-        {data.map((item) => (
-          <article key={item.id}>
-            <div>
-              <h3>{item.employee}</h3>
-              <p>Submitted {item.submittedAt}</p>
-            </div>
-            <div className="manager-console__list-meta">
-              <span>{item.total}</span>
-              {item.policyFlags.length > 0 && <span className="flags">{item.policyFlags.join(', ')}</span>}
-            </div>
-            <div className="manager-console__actions">
-              <button type="button">Approve</button>
-              <button type="button" className="secondary">
-                Request changes
-              </button>
-            </div>
-          </article>
-        ))}
-        {data.length === 0 && !isLoading && <p>No reports waiting for review.</p>}
+        {isLoading && !isError && <p className="manager-console__loading">Loading queue…</p>}
+        {!isLoading &&
+          !isError &&
+          data.map((item) => {
+            const total = formatCurrency(item.report.totalAmountCents, item.report.currency);
+            const reimbursable = formatCurrency(item.report.totalReimbursableCents, item.report.currency);
+            const submitted = formatDate(item.report.submittedAt);
+            const period = `${formatDate(item.report.reportingPeriodStart)} – ${formatDate(item.report.reportingPeriodEnd)}`;
+
+            return (
+              <article key={item.report.id}>
+                <div>
+                  <h3>{item.report.employeeHrIdentifier}</h3>
+                  <p>
+                    Reporting {period}
+                    <br />
+                    Submitted {submitted}
+                  </p>
+                </div>
+                <div className="manager-console__list-meta">
+                  <span>{total}</span>
+                  <span className="manager-console__list-sub">Reimbursable {reimbursable}</span>
+                  {item.policyFlags.length > 0 && (
+                    <ul className="manager-console__list-flags">
+                      {item.policyFlags.map((flag) => {
+                        const flagDate = formatDate(flag.expenseDate);
+                        const detail = flag.description ?? flag.category;
+                        return (
+                          <li key={flag.itemId}>
+                            {flagDate}: {detail}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+                <div className="manager-console__actions">
+                  <button type="button">Approve</button>
+                  <button type="button" className="secondary">
+                    Request changes
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        {data.length === 0 && !isLoading && !isError && <p>No reports waiting for review.</p>}
       </div>
     </section>
   );
