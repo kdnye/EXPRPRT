@@ -250,15 +250,11 @@ async fn run_happy_path(pool: PgPool) -> Result<()> {
         Some(employee_hr.as_str())
     );
     assert_eq!(
-        report
-            .get("reportingPeriodStart")
-            .and_then(Value::as_str),
+        report.get("reportingPeriodStart").and_then(Value::as_str),
         Some(period_start.to_string()).as_deref()
     );
     assert_eq!(
-        report
-            .get("reportingPeriodEnd")
-            .and_then(Value::as_str),
+        report.get("reportingPeriodEnd").and_then(Value::as_str),
         Some(period_end.to_string()).as_deref()
     );
     assert_eq!(
@@ -266,9 +262,7 @@ async fn run_happy_path(pool: PgPool) -> Result<()> {
         Some(85_000_i64)
     );
     assert_eq!(
-        report
-            .get("totalReimbursableCents")
-            .and_then(Value::as_i64),
+        report.get("totalReimbursableCents").and_then(Value::as_i64),
         Some(65_000_i64)
     );
     assert_eq!(report.get("currency").and_then(Value::as_str), Some("USD"));

@@ -445,9 +445,15 @@ mod tests {
         let batches = service.recent_batches(&actor).await?;
         assert_eq!(batches.len(), 2);
         assert_eq!(batches[0].id, recent_batch);
+        assert_eq!(batches[0].status, "exported");
+        assert!(batches[0].exported_at.is_some());
+        assert_eq!(batches[0].finalized_at, recent_finalized);
         assert_eq!(batches[0].report_count, 2);
         assert_eq!(batches[0].total_amount_cents, 57_500_i64);
         assert_eq!(batches[1].id, older_batch);
+        assert_eq!(batches[1].status, "pending");
+        assert!(batches[1].exported_at.is_none());
+        assert_eq!(batches[1].finalized_at, older_finalized);
         assert_eq!(batches[1].report_count, 1);
         assert_eq!(batches[1].total_amount_cents, 42_500_i64);
 
