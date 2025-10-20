@@ -1,15 +1,22 @@
 use std::sync::Arc;
 
 use axum::{extract::Extension, routing::get, routing::post, Json, Router};
+use serde::Serialize;
 
 use crate::{
+    domain::models::Role,
     infrastructure::auth::AuthenticatedUser,
     infrastructure::state::AppState,
     services::{
         errors::ServiceError,
-        finance::{FinalizeRequest, FinanceService},
+        finance::{BatchSummary, FinalizeRequest, FinanceService},
     },
 };
+
+#[derive(Serialize)]
+struct BatchListResponse {
+    batches: Vec<BatchSummary>,
+}
 
 pub fn router() -> Router {
     Router::new()
@@ -33,11 +40,15 @@ async fn finalize(
 async fn list_batches(
     Extension(state): Extension<Arc<AppState>>,
     user: AuthenticatedUser,
-) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+) -> Result<Json<BatchListResponse>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    if user.role != Role::Finance {
+        return Err(to_response(ServiceError::Forbidden));
+    }
+
     let service = FinanceService::new(state);
     let batches = service.recent_batches(&user).await.map_err(to_response)?;
 
-    Ok(Json(serde_json::json!({ "batches": batches })))
+    Ok(Json(BatchListResponse { batches }))
 }
 
 fn to_response(err: ServiceError) -> (axum::http::StatusCode, Json<serde_json::Value>) {

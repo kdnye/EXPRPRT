@@ -139,8 +139,10 @@ Visit <http://localhost:3000> (forwarded from Vite’s configured host/port) to 
 
 ### Finance Batch History API
 
-Finance roles can retrieve recent NetSuite exports via `GET /api/finance/batches`. The endpoint returns the 25 most recent
-`netsuite_batches` ordered by finalization timestamp, and aggregates journal-line counts and amounts for quick history review.
+Finance roles can retrieve recent NetSuite exports via `GET /api/finance/batches`. The endpoint requires an Authorization
+token whose JWT `role` claim resolves to `finance`; all other roles receive HTTP 403. It returns the 25 most recent
+`netsuite_batches` ordered by finalization timestamp, and aggregates journal-line counts and amounts for quick history
+review.
 
 ```json
 {
@@ -159,3 +161,5 @@ Finance roles can retrieve recent NetSuite exports via `GET /api/finance/batches
 ```
 
 Clients should format `total_amount_cents` according to their preferred currency display (the finance UI assumes USD).
+The `status` field mirrors the batch export lifecycle (`pending`, `exported`, etc.) and `exported_at` is `null` until a
+batch successfully posts to NetSuite.

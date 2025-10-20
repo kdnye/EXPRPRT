@@ -13,10 +13,15 @@
  */
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import type { AxiosError } from 'axios';
 import { z } from 'zod';
 import { request } from '@/api/client';
 import SummaryCard from '../components/SummaryCard';
 import './FinanceConsole.css';
+
+type ApiError = {
+  error?: string;
+};
 
 const financeBatchSchema = z
   .object({
@@ -25,8 +30,8 @@ const financeBatchSchema = z
     report_count: z.number(),
     total_amount_cents: z.number(),
     status: z.string(),
-    finalized_at: z.string(),
-    exported_at: z.string().nullable().optional()
+    finalized_at: z.string().datetime(),
+    exported_at: z.string().datetime().nullish()
   })
   .transform((batch) => ({
     id: batch.id,
@@ -34,8 +39,8 @@ const financeBatchSchema = z
     reportCount: batch.report_count,
     totalAmountCents: batch.total_amount_cents,
     status: batch.status,
-    finalizedAt: batch.finalized_at,
-    exportedAt: batch.exported_at ?? null
+    finalizedAt: new Date(batch.finalized_at),
+    exportedAt: batch.exported_at ? new Date(batch.exported_at) : null
   }));
 
 const financeBatchResponseSchema = z.object({
@@ -52,11 +57,9 @@ const fetchBatches = async () => {
 const formatCurrency = (amountCents: number) =>
   new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(amountCents / 100);
 
-const parseDate = (value: string) => (value.length <= 10 ? new Date(`${value}T00:00:00Z`) : new Date(value));
-
-const formatDateTime = (value: string | null) => {
+const formatDateTime = (value: Date | null, placeholder = 'Pending') => {
   if (!value) {
-    return 'Pending';
+    return placeholder;
   }
   return new Intl.DateTimeFormat(undefined, {
     year: 'numeric',
@@ -64,14 +67,34 @@ const formatDateTime = (value: string | null) => {
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  }).format(parseDate(value));
+  }).format(value);
 };
 
+const formatDate = (value: Date) =>
+  new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  }).format(value);
+
 const FinanceConsole = () => {
-  const { data = [], isLoading, isError } = useQuery<FinanceBatch[]>({
+  const {
+    data = [],
+    isLoading,
+    isError,
+    error
+  } = useQuery<FinanceBatch[], AxiosError<ApiError>>({
     queryKey: ['finance-batches'],
-    queryFn: fetchBatches
+    queryFn: fetchBatches,
+    staleTime: 60_000
   });
+
+  const errorMessage = useMemo(() => {
+    if (!error) {
+      return 'Unable to load finance batches.';
+    }
+    return error.response?.data?.error ?? error.message ?? 'Unable to load finance batches.';
+  }, [error]);
 
   const pendingBatches = useMemo(() => data.filter((batch) => batch.status !== 'exported'), [data]);
 
@@ -93,19 +116,20 @@ const FinanceConsole = () => {
             <th>Reports</th>
             <th>Total</th>
             <th>Status</th>
+            <th>Finalized</th>
             <th>Exported</th>
           </tr>
         </thead>
         <tbody>
           {isLoading && (
             <tr>
-              <td colSpan={5}>Loading batch history…</td>
+              <td colSpan={6}>Loading batch history…</td>
             </tr>
           )}
           {isError && (
             <tr>
-              <td colSpan={5} className="finance-console__error">
-                Unable to load finance batches.
+              <td colSpan={6} className="finance-console__error">
+                {errorMessage}
               </td>
             </tr>
           )}
@@ -117,12 +141,13 @@ const FinanceConsole = () => {
                 <td>{batch.reportCount}</td>
                 <td>{formatCurrency(batch.totalAmountCents)}</td>
                 <td>{batch.status}</td>
+                <td>{formatDate(batch.finalizedAt)}</td>
                 <td>{formatDateTime(batch.exportedAt)}</td>
               </tr>
             ))}
           {data.length === 0 && !isLoading && !isError && (
             <tr>
-              <td colSpan={5}>No finalized batches yet.</td>
+              <td colSpan={6}>No finalized batches yet.</td>
             </tr>
           )}
         </tbody>
