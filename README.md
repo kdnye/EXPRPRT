@@ -29,6 +29,12 @@ A full-stack implementation of the Freight Services expense workflow using Rust 
 
 Install dependencies and prepare the database with the shared bootstrap script (it is invoked automatically inside our devcontainer/Codespaces image):
 
+> **Need Rust?** Install it via [rustup](https://rustup.rs/) before running the bootstrap script so `cargo` is available on your `PATH`:
+> ```bash
+> curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+> ```
+> Restart your shell (or source `$HOME/.cargo/env`) afterward so subsequent commands can find the toolchain.
+
 ```bash
 ./scripts/bootstrap.sh
 ```

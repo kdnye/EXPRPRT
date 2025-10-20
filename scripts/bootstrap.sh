@@ -69,5 +69,16 @@ elif [[ -f "${REPO_ROOT}/.env.example" ]]; then
   set +a
 fi
 
+if ! command -v cargo >/dev/null 2>&1; then
+  cat <<'EOF' >&2
+Rust toolchain not detected. Install Rust via rustup before running the migrator:
+
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+Then restart your shell so that cargo is on the PATH and rerun this script.
+EOF
+  exit 1
+fi
+
 echo "Running database migrations..."
 cargo run --manifest-path backend/Cargo.toml --bin migrator
