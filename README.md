@@ -136,3 +136,26 @@ Visit <http://localhost:3000> (forwarded from Vite’s configured host/port) to 
 - `docs/architecture.md` – Policy mapping, data model, and workflow details that guided this implementation
 - `POLICY.md` – Source policy document for expense categories, limits, and approval hierarchy
 - Contributions should include automated tests, documentation updates, and respect for PII/data-safety guidance in `AGENTS.md`
+
+### Finance Batch History API
+
+Finance roles can retrieve recent NetSuite exports via `GET /api/finance/batches`. The endpoint returns the 25 most recent
+`netsuite_batches` ordered by finalization timestamp, and aggregates journal-line counts and amounts for quick history review.
+
+```json
+{
+  "batches": [
+    {
+      "id": "c8d1c55e-7e7b-41aa-8701-d2f3c2ff0e60",
+      "batch_reference": "APR-2024-02",
+      "finalized_at": "2024-04-30T18:32:15Z",
+      "status": "exported",
+      "exported_at": "2024-04-30T18:35:18Z",
+      "report_count": 6,
+      "total_amount_cents": 418500
+    }
+  ]
+}
+```
+
+Clients should format `total_amount_cents` according to their preferred currency display (the finance UI assumes USD).
