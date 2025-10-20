@@ -40,6 +40,10 @@ pub struct AuthConfig {
     pub jwt_ttl_seconds: u64,
     #[serde(default)]
     pub developer_credential: String,
+    #[serde(default)]
+    pub bypass_auth: bool,
+    #[serde(default)]
+    pub bypass_hr_identifier: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -86,6 +90,8 @@ impl Default for AuthConfig {
             jwt_secret: String::new(),
             jwt_ttl_seconds: default_jwt_ttl(),
             developer_credential: String::new(),
+            bypass_auth: false,
+            bypass_hr_identifier: None,
         }
     }
 }

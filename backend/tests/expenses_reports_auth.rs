@@ -62,6 +62,8 @@ async fn run_scenario(pool: PgPool) -> Result<()> {
             jwt_secret: "integration-secret".to_string(),
             jwt_ttl_seconds: 3_600,
             developer_credential: "dev-pass".to_string(),
+            bypass_auth: false,
+            bypass_hr_identifier: None,
         },
         storage: storage_config,
         netsuite: NetSuiteConfig::default(),

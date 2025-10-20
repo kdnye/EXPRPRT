@@ -89,6 +89,15 @@ impl FromRequestParts<()> for AuthenticatedUser {
         let Some(state) = parts.extensions.get::<Arc<AppState>>() else {
             return Err(AuthError::MissingState);
         };
+
+        match state.resolve_bypass_user().await {
+            Ok(Some(user)) => return Ok(user),
+            Ok(None) => {}
+            Err(err) => {
+                warn!(error = ?err, "failed to resolve bypass user");
+            }
+        }
+
         let Some(header_value) = parts.headers.get(axum::http::header::AUTHORIZATION) else {
             return Err(AuthError::Missing);
         };

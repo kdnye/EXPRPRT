@@ -79,6 +79,10 @@ Key authentication variables:
 
 - `EXPENSES__AUTH__JWT_SECRET` – symmetric secret used to sign issued JWTs.
 - `EXPENSES__AUTH__DEVELOPER_CREDENTIAL` – shared developer credential accepted by `POST /api/auth/login` for local usage.
+- `EXPENSES__AUTH__BYPASS_AUTH` – set to `true` **only in development** to skip JWT validation and impersonate a single employee defined by `EXPENSES__AUTH__BYPASS_HR_IDENTIFIER`.
+- `EXPENSES__AUTH__BYPASS_HR_IDENTIFIER` – HR identifier used when bypassing authentication; the backend resolves this employee once at startup.
+
+Frontend builds can mirror the bypass setting by enabling `VITE_AUTH_BYPASS` (and optionally overriding `VITE_AUTH_BYPASS_ROLE`) so the shell skips the login screen when the backend is impersonating a user.
 
 ### Run Everything with Docker Compose
 
