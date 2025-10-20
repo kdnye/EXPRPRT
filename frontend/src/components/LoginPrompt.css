@@ -1,21 +1,51 @@
 .login-prompt {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
   padding: 2rem;
   border-radius: 0.75rem;
   background: #ffffff;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
-  max-width: 420px;
+  max-width: 480px;
 }
 
-.login-prompt h2 {
-  margin: 0;
-  font-size: 1.5rem;
+.login-prompt__toggle {
+  display: inline-flex;
+  background: #e5edff;
+  border-radius: 999px;
+  padding: 0.25rem;
+  gap: 0.25rem;
 }
 
-.login-prompt p {
+.login-prompt__toggle button {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #1f2937;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.login-prompt__toggle button.active {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+}
+
+.login-prompt__toggle button:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+.login-prompt__header h2 {
   margin: 0;
+  font-size: 1.6rem;
+}
+
+.login-prompt__header p {
+  margin: 0.25rem 0 0;
   color: #4b5563;
 }
 
@@ -37,7 +67,19 @@
   font-size: 1rem;
 }
 
-.login-prompt button {
+.login-prompt input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.login-prompt__hint {
+  color: #6b7280;
+  font-size: 0.85rem;
+  margin-top: -0.25rem;
+}
+
+.login-prompt button[type='submit'] {
   border: none;
   border-radius: 0.5rem;
   background-color: #2563eb;
@@ -45,9 +87,18 @@
   font-weight: 600;
   padding: 0.75rem;
   cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
-.login-prompt button:disabled {
+.login-prompt button[type='submit']:hover {
+  background-color: #1d4ed8;
+}
+
+.login-prompt button[type='submit']:active {
+  transform: translateY(1px);
+}
+
+.login-prompt button[type='submit']:disabled {
   opacity: 0.7;
   cursor: not-allowed;
 }
@@ -56,4 +107,11 @@
   color: #b91c1c;
   margin: 0;
   font-size: 0.95rem;
+}
+
+.login-prompt__support {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #374151;
+  line-height: 1.4;
 }

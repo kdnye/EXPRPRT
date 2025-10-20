@@ -61,22 +61,65 @@
 .app-shell__sidebar nav {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1.25rem;
+}
+
+.app-shell__nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.app-shell__nav-heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+}
+
+.app-shell__nav-description {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .app-shell__sidebar nav a {
   color: #ffffff;
   text-decoration: none;
   font-family: 'Lato', sans-serif;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.2s ease-in-out;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+}
+
+.app-shell__sidebar nav a span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.app-shell__nav-badge {
+  background: rgba(0, 208, 132, 0.25);
+  color: #00d084;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .app-shell__sidebar nav a.active,
 .app-shell__sidebar nav a:hover {
   background-color: rgba(0, 208, 132, 0.2);
   color: #00d084;
+  transform: translateX(2px);
 }
 
 .app-shell__sidebar footer {
@@ -99,10 +142,13 @@
   }
 
   .app-shell__sidebar {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.5rem;
+  }
+
+  .app-shell__sidebar nav {
+    width: 100%;
   }
 
   .app-shell__content {

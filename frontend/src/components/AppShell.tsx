@@ -4,10 +4,26 @@ import LoginPrompt from './LoginPrompt';
 import './AppShell.css';
 import StatusPill from './StatusPill';
 
-const navItems = [
-  { path: '/', label: 'Employee Portal' },
-  { path: '/manager', label: 'Manager Console' },
-  { path: '/finance', label: 'Finance Console' }
+const navSections: {
+  label: string;
+  description: string;
+  items: { path: string; label: string; badge?: string }[];
+}[] = [
+  {
+    label: 'Employee workspace',
+    description: 'Capture receipts and submit new expenses.',
+    items: [{ path: '/', label: 'Expense entry' }]
+  },
+  {
+    label: 'Manager workspace',
+    description: 'Review and approve employee submissions.',
+    items: [{ path: '/manager', label: 'Expense approvals' }]
+  },
+  {
+    label: 'Finance workspace',
+    description: 'Finalize reimbursements and export ledgers.',
+    items: [{ path: '/finance', label: 'Exports & tools', badge: 'Finance only' }]
+  }
 ];
 
 const AppShell = () => {
@@ -43,10 +59,17 @@ const AppShell = () => {
           <h1>FSI Expenses</h1>
         </header>
         <nav>
-          {navItems.map((item) => (
-            <NavLink key={item.path} to={item.path} end className={({ isActive }) => (isActive ? 'active' : '')}>
-              {item.label}
-            </NavLink>
+          {navSections.map((section) => (
+            <section key={section.label} className="app-shell__nav-section">
+              <p className="app-shell__nav-heading">{section.label}</p>
+              <p className="app-shell__nav-description">{section.description}</p>
+              {section.items.map((item) => (
+                <NavLink key={item.path} to={item.path} end className={({ isActive }) => (isActive ? 'active' : '')}>
+                  <span>{item.label}</span>
+                  {item.badge ? <span className="app-shell__nav-badge">{item.badge}</span> : null}
+                </NavLink>
+              ))}
+            </section>
           ))}
         </nav>
         <footer>
