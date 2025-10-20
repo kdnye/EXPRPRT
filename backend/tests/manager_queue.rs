@@ -249,12 +249,57 @@ async fn run_happy_path(pool: PgPool) -> Result<()> {
         report.get("employeeHrIdentifier").and_then(Value::as_str),
         Some(employee_hr.as_str())
     );
+    assert_eq!(
+        report
+            .get("reportingPeriodStart")
+            .and_then(Value::as_str),
+        Some(period_start.to_string()).as_deref()
+    );
+    assert_eq!(
+        report
+            .get("reportingPeriodEnd")
+            .and_then(Value::as_str),
+        Some(period_end.to_string()).as_deref()
+    );
+    assert_eq!(
+        report.get("totalAmountCents").and_then(Value::as_i64),
+        Some(85_000_i64)
+    );
+    assert_eq!(
+        report
+            .get("totalReimbursableCents")
+            .and_then(Value::as_i64),
+        Some(65_000_i64)
+    );
+    assert_eq!(report.get("currency").and_then(Value::as_str), Some("USD"));
+
+    let submitted_value = report
+        .get("submittedAt")
+        .and_then(Value::as_str)
+        .expect("submitted at iso8601");
+    let parsed_submitted = chrono::DateTime::parse_from_rfc3339(submitted_value)
+        .expect("valid RFC3339 timestamp")
+        .with_timezone(&Utc);
+    assert_eq!(parsed_submitted, submitted_at);
 
     let line_items = entry
         .get("lineItems")
         .and_then(Value::as_array)
         .expect("line items");
     assert_eq!(line_items.len(), 2);
+    let first_item = &line_items[0];
+    assert_eq!(
+        first_item.get("id").and_then(Value::as_str),
+        Some(regular_item_id.to_string().as_str())
+    );
+    assert_eq!(
+        first_item.get("paymentMethod").and_then(Value::as_str),
+        Some("corporate_card")
+    );
+    assert_eq!(
+        first_item.get("isPolicyException").and_then(Value::as_bool),
+        Some(false)
+    );
 
     let policy_flags = entry
         .get("policyFlags")
