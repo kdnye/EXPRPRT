@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::{extract::Extension, http::StatusCode, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq;
 
 use crate::{
     domain::models::{Employee, Role},
@@ -29,8 +30,22 @@ async fn login(
     Extension(state): Extension<Arc<AppState>>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, (StatusCode, Json<serde_json::Value>)> {
-    if state.config.auth.developer_credential.is_empty()
-        || payload.credential != state.config.auth.developer_credential
+    let Some(hr_identifier) = normalize_hr_identifier(&payload.hr_identifier) else {
+        return Err(unauthorized());
+    };
+
+    let credential = payload.credential.trim();
+    if credential.is_empty() {
+        return Err(unauthorized());
+    }
+
+    let configured_credential = state.config.auth.developer_credential.trim();
+    if configured_credential.is_empty()
+        || !bool::from(
+            credential
+                .as_bytes()
+                .ct_eq(configured_credential.as_bytes()),
+        )
     {
         return Err(unauthorized());
     }
@@ -39,10 +54,10 @@ async fn login(
         r#"
         SELECT id, hr_identifier, manager_id, department, role, created_at
         FROM employees
-        WHERE hr_identifier = $1
+        WHERE UPPER(hr_identifier) = $1
         "#,
     )
-    .bind(&payload.hr_identifier)
+    .bind(&hr_identifier)
     .fetch_optional(&state.pool)
     .await
     .map_err(|err| to_response(ServiceError::Internal(err.to_string())))?;
@@ -57,6 +72,15 @@ async fn login(
         token,
         role: employee.role,
     }))
+}
+
+fn normalize_hr_identifier(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    Some(trimmed.to_uppercase())
 }
 
 fn unauthorized() -> (StatusCode, Json<serde_json::Value>) {
@@ -88,5 +112,17 @@ mod tests {
 
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert_eq!(body, serde_json::json!({ "error": "invalid_credentials" }));
+    }
+
+    #[test]
+    fn normalize_hr_identifier_trims_and_uppercases() {
+        let input = "  mgmt1001\t";
+        let normalized = normalize_hr_identifier(input);
+        assert_eq!(normalized.as_deref(), Some("MGMT1001"));
+    }
+
+    #[test]
+    fn normalize_hr_identifier_rejects_blank_input() {
+        assert_eq!(normalize_hr_identifier("   "), None);
     }
 }
