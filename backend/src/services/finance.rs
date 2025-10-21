@@ -130,12 +130,6 @@ impl FinanceService {
                 return Err(ServiceError::NotFound);
             };
 
-            sqlx::query("UPDATE expense_reports SET status=$1 WHERE id=$2")
-                .bind(ReportStatus::FinanceFinalized)
-                .bind(report_id)
-                .execute(tx.as_mut())
-                .await
-                .map_err(|err| ServiceError::Internal(err.to_string()))?;
             // NetSuite export records the reimbursable liability, so persist the
             // reimbursable portion rather than the raw spend total.
             let amount_cents = total_reimbursable_cents;
@@ -169,12 +163,27 @@ impl FinanceService {
             }
         };
 
+        if response.succeeded {
+            for report_id in &report_ids {
+                sqlx::query("UPDATE expense_reports SET status=$1 WHERE id=$2")
+                    .bind(ReportStatus::FinanceFinalized)
+                    .bind(report_id)
+                    .execute(tx.as_mut())
+                    .await
+                    .map_err(|err| ServiceError::Internal(err.to_string()))?;
+            }
+        }
+
         let export_status = if response.succeeded {
             "exported"
         } else {
             "failed"
         };
-        let exported_at = Utc::now();
+        let exported_at = if response.succeeded {
+            Some(Utc::now())
+        } else {
+            None
+        };
         let response_json = serde_json::to_value(&response).ok();
 
         sqlx::query(
@@ -189,7 +198,7 @@ impl FinanceService {
         .map_err(|err| ServiceError::Internal(err.to_string()))?;
 
         batch.status = export_status.to_string();
-        batch.exported_at = Some(exported_at);
+        batch.exported_at = exported_at;
         batch.netsuite_response = response_json;
 
         tx.commit()
@@ -269,7 +278,7 @@ fn map_line(row: PgRow) -> JournalLine {
 mod tests {
     use super::*;
     use anyhow::Result;
-    use chrono::{Duration, NaiveDate};
+    use chrono::{DateTime, Duration, NaiveDate};
     use sqlx::{postgres::PgPoolOptions, PgPool};
 
     use crate::{
@@ -279,6 +288,7 @@ mod tests {
                 AppConfig, AuthConfig, Config, DatabaseConfig, NetSuiteConfig, ReceiptRules,
                 StorageConfig,
             },
+            netsuite,
             state::AppState,
             storage,
         },
@@ -580,10 +590,7 @@ mod tests {
         let batch = service.finalize_reports(&actor, payload).await?;
 
         let stored_lines: Vec<(Uuid, i64)> = sqlx::query(
-            "SELECT report_id, amount_cents
-             FROM journal_lines
-             WHERE batch_id = $1
-             ORDER BY line_number",
+            "SELECT report_id, amount_cents FROM journal_lines WHERE batch_id = $1 ORDER BY line_number",
         )
         .bind(batch.id)
         .map(|row: PgRow| (row.get("report_id"), row.get("amount_cents")))
@@ -593,6 +600,148 @@ mod tests {
         assert_eq!(stored_lines.len(), 2);
         assert_eq!(stored_lines[0], (report_a, 30_000_i64));
         assert_eq!(stored_lines[1], (report_b, 62_500_i64));
+
+        let report_statuses: Vec<ReportStatus> =
+            sqlx::query("SELECT status FROM expense_reports WHERE id = ANY($1) ORDER BY id")
+                .bind(&report_ids)
+                .map(|row: PgRow| row.get("status"))
+                .fetch_all(&pool)
+                .await?;
+        assert!(report_statuses
+            .iter()
+            .all(|status| *status == ReportStatus::FinanceFinalized));
+
+        assert_eq!(batch.status, "exported");
+        assert!(batch.exported_at.is_some());
+        let (stored_status, stored_exported_at): (String, Option<DateTime<Utc>>) =
+            sqlx::query("SELECT status, exported_at FROM netsuite_batches WHERE id = $1")
+                .bind(batch.id)
+                .map(|row: PgRow| (row.get("status"), row.get("exported_at")))
+                .fetch_one(&pool)
+                .await?;
+        assert_eq!(stored_status, "exported");
+        assert!(stored_exported_at.is_some());
+
+        sqlx::query("DELETE FROM netsuite_batches WHERE id = $1")
+            .bind(batch.id)
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM expense_reports WHERE id = ANY($1)")
+            .bind(&report_ids)
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM employees WHERE id = $1")
+            .bind(finance_employee)
+            .execute(&pool)
+            .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn finalize_reports_failed_export_leaves_reports_requeueable() -> Result<()> {
+        let Some((state, pool)) = setup_state().await? else {
+            return Ok(());
+        };
+
+        sqlx::query("DELETE FROM journal_lines")
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM netsuite_batches")
+            .execute(&pool)
+            .await?;
+
+        let finance_employee = Uuid::new_v4();
+        let hr_identifier = format!("FIN-{}", finance_employee.simple());
+        sqlx::query(
+            "INSERT INTO employees (id, hr_identifier, manager_id, department, role, created_at) VALUES ($1,$2,$3,$4,$5,$6)",
+        )
+        .bind(finance_employee)
+        .bind(&hr_identifier)
+        .bind::<Option<Uuid>>(None)
+        .bind::<Option<String>>(Some("Finance".to_string()))
+        .bind(Role::Finance)
+        .bind(Utc::now())
+        .execute(&pool)
+        .await?;
+
+        let period_start = NaiveDate::from_ymd_opt(2024, 7, 1).expect("valid date");
+        let period_end = NaiveDate::from_ymd_opt(2024, 7, 31).expect("valid date");
+
+        let report_a = Uuid::new_v4();
+        let report_b = Uuid::new_v4();
+        let report_ids = vec![report_a, report_b];
+
+        for report_id in &report_ids {
+            sqlx::query(
+                "INSERT INTO expense_reports (id, employee_id, reporting_period_start, reporting_period_end, status, total_amount_cents, total_reimbursable_cents, currency, version, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+            )
+            .bind(report_id)
+            .bind(finance_employee)
+            .bind(period_start)
+            .bind(period_end)
+            .bind("manager_approved")
+            .bind(45_000_i64)
+            .bind(45_000_i64)
+            .bind("USD")
+            .bind(1_i32)
+            .bind(Utc::now())
+            .bind(Utc::now())
+            .execute(&pool)
+            .await?;
+        }
+
+        let service = FinanceService::new(Arc::clone(&state));
+        let actor = AuthenticatedUser {
+            employee_id: finance_employee,
+            role: Role::Finance,
+        };
+
+        let _override_guard = netsuite::install_export_batch_override(|batch, _lines| {
+            Ok(netsuite::NetSuiteResponse {
+                succeeded: false,
+                reference: Some(format!("FAILED-{}", batch.batch_reference)),
+                message: Some("Simulated export failure".to_string()),
+            })
+        });
+
+        let payload = FinalizeRequest {
+            report_ids: report_ids.clone(),
+            batch_reference: "JUL-2024-EXPORT".to_string(),
+        };
+
+        let batch = service.finalize_reports(&actor, payload).await?;
+
+        assert_eq!(batch.status, "failed");
+        assert!(batch.exported_at.is_none());
+
+        let stored_lines: Vec<(Uuid, i64)> = sqlx::query(
+            "SELECT report_id, amount_cents FROM journal_lines WHERE batch_id = $1 ORDER BY line_number",
+        )
+        .bind(batch.id)
+        .map(|row: PgRow| (row.get("report_id"), row.get("amount_cents")))
+        .fetch_all(&pool)
+        .await?;
+        assert_eq!(stored_lines.len(), 2);
+
+        let report_statuses: Vec<ReportStatus> =
+            sqlx::query("SELECT status FROM expense_reports WHERE id = ANY($1) ORDER BY id")
+                .bind(&report_ids)
+                .map(|row: PgRow| row.get("status"))
+                .fetch_all(&pool)
+                .await?;
+        assert!(report_statuses
+            .iter()
+            .all(|status| *status == ReportStatus::ManagerApproved));
+
+        let (stored_status, stored_exported_at): (String, Option<DateTime<Utc>>) =
+            sqlx::query("SELECT status, exported_at FROM netsuite_batches WHERE id = $1")
+                .bind(batch.id)
+                .map(|row: PgRow| (row.get("status"), row.get("exported_at")))
+                .fetch_one(&pool)
+                .await?;
+        assert_eq!(stored_status, "failed");
+        assert!(stored_exported_at.is_none());
 
         sqlx::query("DELETE FROM netsuite_batches WHERE id = $1")
             .bind(batch.id)
