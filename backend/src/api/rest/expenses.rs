@@ -94,11 +94,14 @@ async fn submit_report(
 
 async fn evaluate_report(
     Extension(state): Extension<Arc<AppState>>,
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
     Path(id): Path<Uuid>,
 ) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
     let service = ExpenseService::new(state);
-    let result = service.evaluate_report(id).await.map_err(to_response)?;
+    let result = service
+        .evaluate_report(&user, id)
+        .await
+        .map_err(to_response)?;
     Ok(Json(serde_json::json!({ "evaluation": result })))
 }
 
