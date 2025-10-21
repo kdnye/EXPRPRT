@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     domain::{
-        models::{ExpenseCategory, ExpenseItem, ExpenseReport, PolicyCap, ReportStatus},
+        models::{ExpenseCategory, ExpenseItem, ExpenseReport, PolicyCap, ReportStatus, Role},
         policy::{evaluate_item, PolicyEvaluation},
     },
     infrastructure::state::AppState,
@@ -238,15 +238,26 @@ impl ExpenseService {
     ///
     /// Returns a merged `PolicyEvaluation` describing violations and warnings
     /// that upstream REST handlers serialize for the UI.
-    pub async fn evaluate_report(&self, report_id: Uuid) -> Result<PolicyEvaluation, ServiceError> {
-        let exists =
-            sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM expense_reports WHERE id = $1")
-                .bind(report_id)
-                .fetch_one(&self.state.pool)
-                .await
-                .map_err(|err| ServiceError::Internal(err.to_string()))?;
-        if exists == 0 {
+    pub async fn evaluate_report(
+        &self,
+        actor: &crate::infrastructure::auth::AuthenticatedUser,
+        report_id: Uuid,
+    ) -> Result<PolicyEvaluation, ServiceError> {
+        let owner_id = sqlx::query_scalar::<_, Option<Uuid>>(
+            "SELECT employee_id FROM expense_reports WHERE id = $1",
+        )
+        .bind(report_id)
+        .fetch_one(&self.state.pool)
+        .await
+        .map_err(|err| ServiceError::Internal(err.to_string()))?;
+
+        let Some(owner_id) = owner_id else {
             return Err(ServiceError::NotFound);
+        };
+
+        let is_reviewer = matches!(actor.role, Role::Manager | Role::Finance | Role::Admin);
+        if actor.employee_id != owner_id && !is_reviewer {
+            return Err(ServiceError::Forbidden);
         }
 
         let item_rows = sqlx::query(
