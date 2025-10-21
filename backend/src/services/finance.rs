@@ -5,7 +5,7 @@
 //! export stubs described in `POLICY.md` §"Approvals and Reimbursement Process"
 //! and §"General Ledger Mapping".
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -86,6 +86,28 @@ impl FinanceService {
             .await
             .map_err(|err| ServiceError::Internal(err.to_string()))?;
 
+        let report_ids = payload.report_ids.clone();
+        let totals_by_report: HashMap<Uuid, (i64, i64)> = sqlx::query(
+            "SELECT id, total_amount_cents, total_reimbursable_cents
+             FROM expense_reports
+             WHERE id = ANY($1)",
+        )
+        .bind(&report_ids)
+        .map(|row: PgRow| {
+            (
+                row.get("id"),
+                (
+                    row.get::<i64, _>("total_amount_cents"),
+                    row.get::<i64, _>("total_reimbursable_cents"),
+                ),
+            )
+        })
+        .fetch_all(tx.as_mut())
+        .await
+        .map_err(|err| ServiceError::Internal(err.to_string()))?
+        .into_iter()
+        .collect();
+
         let mut batch = sqlx::query(
             "INSERT INTO netsuite_batches (id, batch_reference, finalized_by, finalized_at, status)
              VALUES ($1,$2,$3,$4,$5) RETURNING *",
@@ -101,13 +123,22 @@ impl FinanceService {
         .map_err(|err| ServiceError::Internal(err.to_string()))?;
 
         let mut lines = Vec::new();
-        for (idx, report_id) in payload.report_ids.iter().enumerate() {
+        for (idx, report_id) in report_ids.iter().enumerate() {
+            let Some((_total_amount_cents, total_reimbursable_cents)) =
+                totals_by_report.get(report_id).copied()
+            else {
+                return Err(ServiceError::NotFound);
+            };
+
             sqlx::query("UPDATE expense_reports SET status=$1 WHERE id=$2")
                 .bind(ReportStatus::FinanceFinalized)
                 .bind(report_id)
                 .execute(tx.as_mut())
                 .await
                 .map_err(|err| ServiceError::Internal(err.to_string()))?;
+            // NetSuite export records the reimbursable liability, so persist the
+            // reimbursable portion rather than the raw spend total.
+            let amount_cents = total_reimbursable_cents;
             let line = sqlx::query(
                 "INSERT INTO journal_lines (id, batch_id, report_id, line_number, gl_account, amount_cents)
                  VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",
@@ -117,7 +148,7 @@ impl FinanceService {
             .bind(report_id)
             .bind((idx + 1) as i32)
             .bind("EXPENSES")
-            .bind(0_i64)
+            .bind(amount_cents)
             .map(|row: PgRow| map_line(row))
             .fetch_one(tx.as_mut())
             .await
@@ -463,6 +494,112 @@ mod tests {
             .await?;
         sqlx::query("DELETE FROM expense_reports WHERE id = ANY($1)")
             .bind(&vec![report_a, report_b, report_c])
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM employees WHERE id = $1")
+            .bind(finance_employee)
+            .execute(&pool)
+            .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn finalize_reports_persists_report_totals_in_journal_lines() -> Result<()> {
+        let Some((state, pool)) = setup_state().await? else {
+            return Ok(());
+        };
+
+        sqlx::query("DELETE FROM journal_lines")
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM netsuite_batches")
+            .execute(&pool)
+            .await?;
+
+        let finance_employee = Uuid::new_v4();
+        let hr_identifier = format!("FIN-{}", finance_employee.simple());
+        sqlx::query(
+            "INSERT INTO employees (id, hr_identifier, manager_id, department, role, created_at)
+             VALUES ($1,$2,$3,$4,$5,$6)",
+        )
+        .bind(finance_employee)
+        .bind(&hr_identifier)
+        .bind::<Option<Uuid>>(None)
+        .bind::<Option<String>>(Some("Finance".to_string()))
+        .bind(Role::Finance)
+        .bind(Utc::now())
+        .execute(&pool)
+        .await?;
+
+        let period_start = NaiveDate::from_ymd_opt(2024, 6, 1).expect("valid date");
+        let period_end = NaiveDate::from_ymd_opt(2024, 6, 30).expect("valid date");
+
+        let report_a = Uuid::new_v4();
+        let report_b = Uuid::new_v4();
+        let report_ids = vec![report_a, report_b];
+
+        let report_values = [
+            (report_a, 45_000_i64, 30_000_i64),
+            (report_b, 62_500_i64, 62_500_i64),
+        ];
+
+        for (report_id, total_amount, total_reimbursable) in report_values {
+            sqlx::query(
+                "INSERT INTO expense_reports
+                     (id, employee_id, reporting_period_start, reporting_period_end, status,
+                      total_amount_cents, total_reimbursable_cents, currency, version, created_at, updated_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+            )
+            .bind(report_id)
+            .bind(finance_employee)
+            .bind(period_start)
+            .bind(period_end)
+            .bind("manager_approved")
+            .bind(total_amount)
+            .bind(total_reimbursable)
+            .bind("USD")
+            .bind(1_i32)
+            .bind(Utc::now())
+            .bind(Utc::now())
+            .execute(&pool)
+            .await?;
+        }
+
+        let service = FinanceService::new(Arc::clone(&state));
+        let actor = AuthenticatedUser {
+            employee_id: finance_employee,
+            role: Role::Finance,
+        };
+
+        let payload = FinalizeRequest {
+            report_ids: report_ids.clone(),
+            batch_reference: "JUN-2024-EXPORT".to_string(),
+        };
+
+        let batch = service.finalize_reports(&actor, payload).await?;
+
+        let stored_lines: Vec<(Uuid, i64)> = sqlx::query(
+            "SELECT report_id, amount_cents
+             FROM journal_lines
+             WHERE batch_id = $1
+             ORDER BY line_number",
+        )
+        .bind(batch.id)
+        .map(|row: PgRow| (row.get("report_id"), row.get("amount_cents")))
+        .fetch_all(&pool)
+        .await?;
+
+        assert_eq!(stored_lines.len(), 2);
+        assert_eq!(stored_lines[0], (report_a, 30_000_i64));
+        assert_eq!(stored_lines[1], (report_b, 62_500_i64));
+
+        sqlx::query("DELETE FROM netsuite_batches WHERE id = $1")
+            .bind(batch.id)
+            .execute(&pool)
+            .await?;
+        sqlx::query("DELETE FROM expense_reports WHERE id = ANY($1)")
+            .bind(&report_ids)
             .execute(&pool)
             .await?;
         sqlx::query("DELETE FROM employees WHERE id = $1")
