@@ -243,11 +243,11 @@ impl ExpenseService {
         actor: &crate::infrastructure::auth::AuthenticatedUser,
         report_id: Uuid,
     ) -> Result<PolicyEvaluation, ServiceError> {
-        let owner_id = sqlx::query_scalar::<_, Option<Uuid>>(
+        let owner_id = sqlx::query_scalar::<_, Uuid>(
             "SELECT employee_id FROM expense_reports WHERE id = $1",
         )
         .bind(report_id)
-        .fetch_one(&self.state.pool)
+        .fetch_optional(&self.state.pool)
         .await
         .map_err(|err| ServiceError::Internal(err.to_string()))?;
 
