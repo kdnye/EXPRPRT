@@ -12,8 +12,22 @@ const apiBase = (window.__FSI_EXPENSES_CONFIG__?.apiBaseUrl as string | undefine
   document.querySelector('meta[name="fsi-expenses-api-base"]')?.getAttribute('content') ??
   __API_BASE__ ?? '';
 
+const ensureTrailingSlash = (value: string) => (value.endsWith('/') ? value : `${value}/`);
+
+const resolveBaseUrl = () => {
+  const trimmed = apiBase.trim();
+  if (trimmed.length === 0) {
+    return '/api/';
+  }
+  return ensureTrailingSlash(trimmed);
+};
+
+const isAbsoluteUrl = (url: string) => /^[a-z][a-z\d+\-.]*:/.test(url) || url.startsWith('//');
+
+const normalizeRelativeUrl = (url: string) => url.replace(/^\/+/u, '');
+
 const client = axios.create({
-  baseURL: apiBase || '/api',
+  baseURL: resolveBaseUrl(),
   withCredentials: true
 });
 
@@ -40,7 +54,8 @@ client.interceptors.response.use(
 );
 
 export const request = async <T>(method: HttpMethod, url: string, data?: unknown) => {
-  const response = await client.request<T>({ method, url, data });
+  const finalUrl = isAbsoluteUrl(url) ? url : normalizeRelativeUrl(url);
+  const response = await client.request<T>({ method, url: finalUrl, data });
   return response.data;
 };
 
