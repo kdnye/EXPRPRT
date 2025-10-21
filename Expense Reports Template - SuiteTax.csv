@@ -1,0 +1,26 @@
+External ID,Exp. Rept. #,Employee,Date,Date Due,Subsidiary,Purpose,Posting Period,Supervisor Approval,Accounting Approval,Account for Corporate Card Expenses,Advance to Apply,Currency,Exchange Rate,Complete,Tax Details Override,Line ID,Date,Category,Expense Account,Line Description,Department,Class,Location,Amount,Currency,Exchange Rate,Foreign Amount,Receipt,Corporate Card,"Tax Details Reference	",Tax Details Reference (Req),Tax Amount (Req),Tax Basis (Req),Tax Code,Tax Rate (Req), Type,
+HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,HEADER,LINE,LINE,LINE,LINE,LINE,LINE,LINE,LINE,LINE,LINE,LINE,LINE,LINE,LINE,LINE,HEADER - TAX DETAILS,HEADER - TAX DETAILS,HEADER - TAX DETAILS,HEADER - TAX DETAILS,HEADER - TAX DETAILS,HEADER - TAX DETAILS,
+"Enter a unique identifier associated to this Expense Report, such as the Exp. Rept. #.",Defaults to the largest Expense Report number incremented by 1. You can overwrite with another number.,Sets the employee for this expense report. Required on Add.,Enter the Expense Report Date,Sets the due date for this Expense Report.,References a value defined at Setup > Company > Classifications > Subsidiaries.,Sets a description for the expense report.,Defaults to the posting period of the Date or the earliest open posting period after if that period is closed.,Can only be set for roles that have approval permissions.,Set to true if this expense report is ready to pay.,Select the credit card account to use for corporate card expenses.,Sets the amount advanced to employee for these expenses.,Select a currency for this expense report if different from default.,Select an exchange rate for this expense report if different from system default based on date.,"If set to true, this expense report is complete. If set to false, this expense report is not complete. Only complete reports are submitted for approval and processing.","HEADER: TAX DETAILS : SUITETAX
+
+If you would like to override tax values, enter ""Yes"", otherwise enter ""No"".
+
+If you enter ""No"", all tax values will be calculated automatically via SuiteTax.
+
+",Enter applicable Line ID.,Enter the date of the specific expense. This can be different from the Expense Report date.,Select applicable Expense Category. ,"Enter Account associated to Expense. If Category is entered, the associated Account will default.",Enter description for the expense,References a value from a user defined list at Setup > Company > Classifications > Departments. This field is required when the Make Departments Mandatory preference is enabled at Setup > Accounting > Accounting Preferences.,References a value from a user defined list at Setup > Company > Classifications > Classes. This field is required when the Make Classes Mandatory preference is enabled at Setup > Accounting > Accounting Preferences.,References a value in a user-defined list at Setup > Company > Classifications > Locations. This field is required when Make Locations Mandatory is enabled at Setup > Accounting > Accounting Preferences.,Enter expense amount,Enter currency of the expense report,"Enter applicable Exchange Rate to convert Foreight Amount to Base Currency Amount. If left blank, the system will auto-populate this value.",Entered foreign amount will be converted to the employee base currency amount,Select TRUE if the expense includes an attached file of the Receipt.,Select FALSE if the expense needs to be reimbursed back to the employee.,"LINE
+
+When importing multi-line orders with SuiteTax, this field must be populated. Use the same value for this field as the ""itemLine_line"" field.","HEADER
+
+When importing multi-line orders with SuiteTax, this field must be populated. Use the same value for this field as the ""itemLine_line"" field.","HEADER
+
+This is the tax amount per line.","HEADER
+
+This is the tax basis per line","HEADER
+
+To view a list of Tax Codes, navigate to Setup > Tax > Tax Codes","HEADER
+
+This is the tax rate per line","HEADER
+
+To view a list of Tax Codes, navigate to Setup > Tax > Tax Types",
+,10001,John Smith,8/8/2018,,,,,TRUE/FALSE,TRUE/FALSE,,,,,TRUE/FALSE,,,,,,,,,,,,,,TRUE/FALSE,TRUE/FALSE,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
