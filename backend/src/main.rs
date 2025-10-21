@@ -17,6 +17,8 @@ async fn main() -> anyhow::Result<()> {
     telemetry::init();
     let config = Arc::new(Config::from_env()?);
     let pool = db::connect(&config.database).await?;
+    db::run_migrations(&pool).await?;
+    info!("database migrations completed successfully");
     let storage = storage::build_storage(&config.storage)?;
     let state = Arc::new(AppState::new(Arc::clone(&config), pool, storage));
 
