@@ -2,12 +2,15 @@ use std::sync::Arc;
 
 use axum::{
     extract::{FromRequestParts, Request},
-    http::StatusCode,
+    http::{HeaderValue, StatusCode},
     middleware::{self, Next},
     response::Response,
     Json, Router,
 };
 use tower_http::services::ServeDir;
+
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
+use tracing::warn;
 
 use self::rest::router as rest_router;
 
@@ -23,11 +26,13 @@ use crate::infrastructure::{
 pub fn build_router(config: Arc<Config>) -> Router {
     let router = Router::new().nest("/api", rest_router());
 
-    if let Some(receipts_router) = receipts_router(config.as_ref()) {
+    let router = if let Some(receipts_router) = receipts_router(config.as_ref()) {
         router.merge(receipts_router)
     } else {
         router
-    }
+    };
+
+    router.layer(build_cors_layer(config.as_ref()))
 }
 
 pub async fn not_found() -> (StatusCode, Json<serde_json::Value>) {
@@ -50,6 +55,33 @@ fn receipts_router(config: &Config) -> Option<Router> {
             .nest_service("/receipts", service)
             .layer(middleware::from_fn(require_authenticated_user)),
     )
+}
+
+fn build_cors_layer(config: &Config) -> CorsLayer {
+    let base = CorsLayer::new().allow_methods(Any).allow_headers(Any);
+
+    if config.app.cors_origins.is_empty() {
+        return base.allow_origin(Any);
+    }
+
+    let origins: Vec<HeaderValue> = config
+        .app
+        .cors_origins
+        .iter()
+        .filter_map(|origin| match origin.parse::<HeaderValue>() {
+            Ok(value) => Some(value),
+            Err(error) => {
+                warn!(%origin, ?error, "skipping invalid CORS origin");
+                None
+            }
+        })
+        .collect();
+
+    if origins.is_empty() {
+        base.allow_origin(Any)
+    } else {
+        base.allow_origin(AllowOrigin::list(origins))
+    }
 }
 
 async fn require_authenticated_user(request: Request, next: Next) -> Result<Response, AuthError> {
