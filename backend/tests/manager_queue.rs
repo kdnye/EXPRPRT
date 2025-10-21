@@ -21,49 +21,23 @@ use expense_portal::{
     },
 };
 use serde_json::Value;
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::PgPool;
 use tower::ServiceExt;
 use uuid::Uuid;
 
+#[path = "test_harness.rs"]
+mod test_harness;
+
+use test_harness::run_test;
+
 #[tokio::test]
 async fn manager_queue_requires_manager_role() -> Result<()> {
-    let Some(pool) = maybe_connect_pool().await? else {
-        return Ok(());
-    };
-
-    sqlx::migrate!("./migrations").run(&pool).await?;
-
-    run_requires_manager(pool).await
+    run_test(run_requires_manager).await
 }
 
 #[tokio::test]
 async fn manager_queue_returns_pending_reports() -> Result<()> {
-    let Some(pool) = maybe_connect_pool().await? else {
-        return Ok(());
-    };
-
-    sqlx::migrate!("./migrations").run(&pool).await?;
-
-    run_happy_path(pool).await
-}
-
-async fn maybe_connect_pool() -> Result<Option<PgPool>> {
-    dotenvy::dotenv().ok();
-    let database_url = std::env::var("DATABASE_URL")
-        .or_else(|_| std::env::var("EXPENSES__DATABASE__URL"))
-        .unwrap_or_else(|_| "postgres://expenses:expenses@localhost:5432/expenses".to_string());
-
-    match PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await
-    {
-        Ok(pool) => Ok(Some(pool)),
-        Err(err) => {
-            eprintln!("Skipping integration test: unable to connect to database: {err}");
-            Ok(None)
-        }
-    }
+    run_test(run_happy_path).await
 }
 
 async fn run_requires_manager(pool: PgPool) -> Result<()> {
