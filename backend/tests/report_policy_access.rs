@@ -21,52 +21,33 @@ use expense_portal::{
     },
 };
 use serde_json::Value;
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::PgPool;
 use tower::ServiceExt;
 use uuid::Uuid;
 
+#[path = "test_harness.rs"]
+mod test_harness;
+
+use test_harness::run_test;
+
 #[tokio::test]
 async fn report_policy_allows_owner() -> Result<()> {
-    let Some(pool) = maybe_connect_pool().await? else {
-        return Ok(());
-    };
-
-    sqlx::migrate!("./migrations").run(&pool).await?;
-
-    run_owner_access(pool).await
+    run_test(run_owner_access).await
 }
 
 #[tokio::test]
 async fn report_policy_blocks_unrelated_employee() -> Result<()> {
-    let Some(pool) = maybe_connect_pool().await? else {
-        return Ok(());
-    };
-
-    sqlx::migrate!("./migrations").run(&pool).await?;
-
-    run_cross_employee_forbidden(pool).await
+    run_test(run_cross_employee_forbidden).await
 }
 
 #[tokio::test]
 async fn report_policy_allows_manager() -> Result<()> {
-    let Some(pool) = maybe_connect_pool().await? else {
-        return Ok(());
-    };
-
-    sqlx::migrate!("./migrations").run(&pool).await?;
-
-    run_reviewer_access(pool, Role::Manager).await
+    run_test(|pool| run_reviewer_access(pool, Role::Manager)).await
 }
 
 #[tokio::test]
 async fn report_policy_allows_finance() -> Result<()> {
-    let Some(pool) = maybe_connect_pool().await? else {
-        return Ok(());
-    };
-
-    sqlx::migrate!("./migrations").run(&pool).await?;
-
-    run_reviewer_access(pool, Role::Finance).await
+    run_test(|pool| run_reviewer_access(pool, Role::Finance)).await
 }
 
 async fn run_owner_access(pool: PgPool) -> Result<()> {
@@ -157,25 +138,6 @@ async fn run_reviewer_access(pool: PgPool, role: Role) -> Result<()> {
     cleanup(&pool, report_id, &[owner.id, reviewer.id]).await?;
 
     Ok(())
-}
-
-async fn maybe_connect_pool() -> Result<Option<PgPool>> {
-    dotenvy::dotenv().ok();
-    let database_url = std::env::var("DATABASE_URL")
-        .or_else(|_| std::env::var("EXPENSES__DATABASE__URL"))
-        .unwrap_or_else(|_| "postgres://expenses:expenses@localhost:5432/expenses".to_string());
-
-    match PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await
-    {
-        Ok(pool) => Ok(Some(pool)),
-        Err(err) => {
-            eprintln!("Skipping integration test: unable to connect to database: {err}");
-            Ok(None)
-        }
-    }
 }
 
 async fn build_state(pool: PgPool) -> Result<(Arc<Config>, Arc<AppState>)> {

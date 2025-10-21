@@ -20,32 +20,18 @@ use expense_portal::{
     },
 };
 use serde_json::Value;
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::PgPool;
 use tower::ServiceExt;
 use uuid::Uuid;
 
+#[path = "test_harness.rs"]
+mod test_harness;
+
+use test_harness::run_test;
+
 #[tokio::test]
 async fn expenses_reports_requires_valid_token() -> Result<()> {
-    dotenvy::dotenv().ok();
-    let database_url = std::env::var("DATABASE_URL")
-        .or_else(|_| std::env::var("EXPENSES__DATABASE__URL"))
-        .unwrap_or_else(|_| "postgres://expenses:expenses@localhost:5432/expenses".to_string());
-
-    let pool = match PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await
-    {
-        Ok(pool) => pool,
-        Err(err) => {
-            eprintln!("Skipping integration test: unable to connect to database: {err}");
-            return Ok(());
-        }
-    };
-
-    sqlx::migrate!("./migrations").run(&pool).await?;
-
-    run_scenario(pool).await
+    run_test(run_scenario).await
 }
 
 async fn run_scenario(pool: PgPool) -> Result<()> {
