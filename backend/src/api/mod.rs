@@ -58,16 +58,21 @@ fn receipts_router(config: &Config) -> Option<Router> {
 }
 
 fn build_cors_layer(config: &Config) -> CorsLayer {
-    let base = CorsLayer::new().allow_methods(Any).allow_headers(Any);
+    const DEFAULT_CORS_ORIGINS: &[&str] = &["http://localhost:5173", "http://127.0.0.1:5173"];
 
-    if config.app.cors_origins.is_empty() {
-        return base.allow_origin(Any);
-    }
+    let base = CorsLayer::new()
+        .allow_methods(Any)
+        .allow_headers(Any)
+        .allow_credentials(true);
 
-    let origins: Vec<HeaderValue> = config
-        .app
-        .cors_origins
-        .iter()
+    let configured_origins: Vec<&str> = if config.app.cors_origins.is_empty() {
+        DEFAULT_CORS_ORIGINS.to_vec()
+    } else {
+        config.app.cors_origins.iter().map(String::as_str).collect()
+    };
+
+    let origins: Vec<HeaderValue> = configured_origins
+        .into_iter()
         .filter_map(|origin| match origin.parse::<HeaderValue>() {
             Ok(value) => Some(value),
             Err(error) => {
@@ -78,7 +83,8 @@ fn build_cors_layer(config: &Config) -> CorsLayer {
         .collect();
 
     if origins.is_empty() {
-        base.allow_origin(Any)
+        warn!("no valid CORS origins configured; credentialed requests will fail");
+        base
     } else {
         base.allow_origin(AllowOrigin::list(origins))
     }
