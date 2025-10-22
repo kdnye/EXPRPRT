@@ -324,7 +324,7 @@ async fn build_state(pool: PgPool) -> Result<(Arc<Config>, Arc<AppState>)> {
     });
 
     let storage = storage::build_storage(&config.storage)?;
-    let state = Arc::new(AppState::new(Arc::clone(&config), pool, storage));
+    let state = Arc::new(AppState::new(Arc::clone(&config), pool, storage)?);
 
     Ok((config, state))
 }

@@ -20,7 +20,7 @@ async fn main() -> anyhow::Result<()> {
     db::run_migrations(&pool).await?;
     info!("database migrations completed successfully");
     let storage = storage::build_storage(&config.storage)?;
-    let state = Arc::new(AppState::new(Arc::clone(&config), pool, storage));
+    let state = Arc::new(AppState::new(Arc::clone(&config), pool, storage)?);
 
     let router = api::build_router(Arc::clone(&config)).layer(Extension(Arc::clone(&state)));
 

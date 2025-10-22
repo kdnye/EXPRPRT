@@ -243,13 +243,12 @@ impl ExpenseService {
         actor: &crate::infrastructure::auth::AuthenticatedUser,
         report_id: Uuid,
     ) -> Result<PolicyEvaluation, ServiceError> {
-        let owner_id = sqlx::query_scalar::<_, Uuid>(
-            "SELECT employee_id FROM expense_reports WHERE id = $1",
-        )
-        .bind(report_id)
-        .fetch_optional(&self.state.pool)
-        .await
-        .map_err(|err| ServiceError::Internal(err.to_string()))?;
+        let owner_id =
+            sqlx::query_scalar::<_, Uuid>("SELECT employee_id FROM expense_reports WHERE id = $1")
+                .bind(report_id)
+                .fetch_optional(&self.state.pool)
+                .await
+                .map_err(|err| ServiceError::Internal(err.to_string()))?;
 
         let Some(owner_id) = owner_id else {
             return Err(ServiceError::NotFound);
@@ -607,7 +606,7 @@ mod tests {
         });
 
         let storage = storage::build_storage(&config.storage)?;
-        let state = Arc::new(AppState::new(Arc::clone(&config), pool.clone(), storage));
+        let state = Arc::new(AppState::new(Arc::clone(&config), pool.clone(), storage)?);
         let service = ExpenseService::new(Arc::clone(&state));
         let actor = AuthenticatedUser {
             employee_id,
