@@ -118,25 +118,59 @@ elif [[ -f "${REPO_ROOT}/.env.example" ]]; then
   set +a
 fi
 
-if ! command -v cargo >/dev/null 2>&1; then
-  cat <<'EOF' >&2
-Rust toolchain not detected. Install Rust via rustup before running the migrator:
-
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-
-Then restart your shell so that cargo is on the PATH and rerun this script.
-EOF
-  exit 1
-fi
-
-if ! command -v cc >/dev/null 2>&1; then
-  cat <<'EOF' >&2
+if command -v cargo >/dev/null 2>&1; then
+  if ! command -v cc >/dev/null 2>&1; then
+    cat <<'EOF' >&2
 No C compiler detected on PATH. The Rust toolchain needs a system linker such as gcc.
 Install build essentials (for example, on Debian/Ubuntu: sudo apt-get install build-essential pkg-config libssl-dev)
 and rerun this script.
 EOF
+    exit 1
+  fi
+
+  echo "Running database migrations..."
+  cargo run --manifest-path backend/Cargo.toml --bin migrator
+  exit 0
+fi
+
+echo "Local Rust toolchain not detected; attempting containerized migrator run..."
+
+DB_NETWORK="$(docker inspect -f '{{range $name,$conf := .NetworkSettings.Networks}}{{$name}}{{end}}' "${DB_CONTAINER}" 2>/dev/null || true)"
+
+if [[ -z "${DB_NETWORK}" ]]; then
+  cat <<'EOF' >&2
+Could not determine the Docker network for the PostgreSQL container.
+Ensure docker compose is running the `db` service and rerun this script.
+EOF
   exit 1
 fi
 
-echo "Running database migrations..."
+RUST_DOCKER_IMAGE="${BOOTSTRAP_RUST_IMAGE:-rust:1.81}"
+CONTAINER_DATABASE_URL="${BOOTSTRAP_DATABASE_URL:-postgres://expenses:expenses@db:5432/expenses?sslmode=disable}"
+
+read -r -d '' DOCKER_MIGRATOR <<'EOF'
+set -euo pipefail
+
+if [[ -f "$HOME/.cargo/env" ]]; then
+  # shellcheck source=/dev/null
+  source "$HOME/.cargo/env"
+elif [[ -f "/usr/local/cargo/env" ]]; then
+  # shellcheck source=/dev/null
+  source "/usr/local/cargo/env"
+fi
+
+apt-get update -y >/dev/null 2>&1
+apt-get install -y pkg-config libssl-dev >/dev/null 2>&1
+
 cargo run --manifest-path backend/Cargo.toml --bin migrator
+EOF
+
+docker run --rm \
+  --network "${DB_NETWORK}" \
+  -v "${REPO_ROOT}:/app" \
+  -w /app \
+  -e "EXPENSES__DATABASE__URL=${CONTAINER_DATABASE_URL}" \
+  -e "DATABASE_URL=${CONTAINER_DATABASE_URL}" \
+  -e "RUST_LOG=${RUST_LOG:-debug}" \
+  "${RUST_DOCKER_IMAGE}" \
+  bash -lc "${DOCKER_MIGRATOR}"
