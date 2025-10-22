@@ -1,17 +1,14 @@
-use std::{
-    convert::TryFrom,
-    fmt,
-};
+use std::{convert::TryFrom, fmt};
 
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use sqlx::{
     decode::Decode,
-    encode::{Encode, EncodeResult},
+    encode::{Encode, IsNull},
     error::BoxDynError,
     postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef},
-    FromRow, Postgres, Type,
+    FromRow, Postgres, Type, TypeInfo,
 };
 use uuid::Uuid;
 
@@ -72,12 +69,14 @@ impl PgHasArrayType for Role {
 }
 
 impl<'q> Encode<'q, Postgres> for Role {
-    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> EncodeResult<()> {
-        <&str as Encode<Postgres>>::encode(self.as_str(), buf)
+    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> Result<IsNull, BoxDynError> {
+        let value = self.as_str();
+        <&str as Encode<Postgres>>::encode_by_ref(&value, buf)
     }
 
     fn size_hint(&self) -> usize {
-        <&str as Encode<Postgres>>::size_hint(self.as_str())
+        let value = self.as_str();
+        <&str as Encode<Postgres>>::size_hint(&value)
     }
 }
 
