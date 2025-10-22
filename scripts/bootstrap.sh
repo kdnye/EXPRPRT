@@ -6,6 +6,21 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$REPO_ROOT"
 
+# Ensure a working environment file is present for local runs.
+if [[ ! -f "${REPO_ROOT}/.env" ]]; then
+  if [[ -f "${REPO_ROOT}/.env.example" ]]; then
+    echo "Creating .env from .env.example..."
+    cp "${REPO_ROOT}/.env.example" "${REPO_ROOT}/.env"
+  else
+    cat <<'EOF' >&2
+No .env found and .env.example is missing.
+Restore the sample configuration (git restore --source=origin/main -- .env.example)
+or create a local .env before rerunning bootstrap.
+EOF
+    exit 1
+  fi
+fi
+
 npm install
 npm install --prefix frontend
 
@@ -76,6 +91,15 @@ Rust toolchain not detected. Install Rust via rustup before running the migrator
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 Then restart your shell so that cargo is on the PATH and rerun this script.
+EOF
+  exit 1
+fi
+
+if ! command -v cc >/dev/null 2>&1; then
+  cat <<'EOF' >&2
+No C compiler detected on PATH. The Rust toolchain needs a system linker such as gcc.
+Install build essentials (for example, on Debian/Ubuntu: sudo apt-get install build-essential pkg-config libssl-dev)
+and rerun this script.
 EOF
   exit 1
 fi
