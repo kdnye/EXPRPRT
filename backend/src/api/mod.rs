@@ -22,7 +22,9 @@ use crate::infrastructure::{
 };
 
 pub fn build_router(config: Arc<Config>) -> Router {
-    let router = Router::new().nest("/api", rest_router());
+    let router = Router::new()
+        .nest("/api", rest_router())
+        .nest("/auth", rest::auth::router());
 
     let router = if let Some(receipts_router) = receipts_router(config.as_ref()) {
         router.merge(receipts_router)
@@ -120,7 +122,8 @@ mod tests {
     fn cors_layer_with_credentials_does_not_panic_with_configured_origins() {
         let config = base_config();
 
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| build_cors_layer(&config)));
+        let result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| build_cors_layer(&config)));
 
         assert!(result.is_ok(), "building the CORS layer should not panic");
     }
