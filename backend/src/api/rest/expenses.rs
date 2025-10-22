@@ -306,7 +306,10 @@ mod tests {
         let (status, Json(body)) = to_response(ServiceError::Internal("db offline".into()));
 
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-        assert_eq!(body, serde_json::json!({ "error": "internal_server_error" }));
+        assert_eq!(
+            body,
+            serde_json::json!({ "error": "internal_server_error" })
+        );
     }
 
     #[test]

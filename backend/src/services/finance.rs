@@ -801,7 +801,7 @@ mod tests {
         });
 
         let storage = storage::build_storage(&config.storage)?;
-        let state = Arc::new(AppState::new(Arc::clone(&config), pool.clone(), storage));
+        let state = Arc::new(AppState::new(Arc::clone(&config), pool.clone(), storage)?);
 
         Ok(Some((state, pool)))
     }
