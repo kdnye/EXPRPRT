@@ -38,6 +38,40 @@ else
   exit 0
 fi
 
+HOST_PORT="${POSTGRES_HOST_PORT:-5432}"
+
+if [[ -n "${HOST_PORT}" ]] && ! [[ "${HOST_PORT}" =~ ^[0-9]+$ ]]; then
+  cat <<EOF >&2
+POSTGRES_HOST_PORT must be a numeric port value. Received '${HOST_PORT}'.
+Update your environment or .env and rerun this script.
+EOF
+  exit 1
+fi
+
+if [[ -n "${HOST_PORT}" ]] && command -v python3 >/dev/null 2>&1; then
+  if ! python3 - "$HOST_PORT" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    try:
+        sock.bind(("0.0.0.0", port))
+    except OSError:
+        sys.exit(1)
+sys.exit(0)
+PY
+  then
+    cat <<EOF >&2
+Port ${HOST_PORT} is already in use on this machine. Docker Compose cannot start PostgreSQL until the port is free.
+Set POSTGRES_HOST_PORT to an unused port (for example 55432) in .env or in the environment before rerunning this script:
+  POSTGRES_HOST_PORT=55432 ./scripts/bootstrap.sh
+EOF
+    exit 1
+  fi
+fi
+
 echo "Starting PostgreSQL via docker compose..."
 "${COMPOSE_CMD[@]}" up -d db >/dev/null
 
