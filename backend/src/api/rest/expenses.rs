@@ -114,6 +114,13 @@ fn to_response(err: ServiceError) -> (axum::http::StatusCode, Json<serde_json::V
                 "message": message,
             })),
         ),
+        ServiceError::Internal(message) => {
+            tracing::error!("Internal error: {}", message);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "internal_server_error" })),
+            )
+        }
         other => (
             other.status_code(),
             Json(serde_json::json!({ "error": other.to_string() })),
@@ -292,6 +299,14 @@ mod tests {
 
         assert_eq!(status, StatusCode::NOT_FOUND);
         assert_eq!(body, serde_json::json!({ "error": "not found" }));
+    }
+
+    #[test]
+    fn maps_internal_errors_to_generic_http_500() {
+        let (status, Json(body)) = to_response(ServiceError::Internal("db offline".into()));
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(body, serde_json::json!({ "error": "internal_server_error" }));
     }
 
     #[test]
