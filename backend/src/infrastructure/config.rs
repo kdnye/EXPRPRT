@@ -1,10 +1,12 @@
 use serde::Deserialize;
+use std::env;
 use std::time::Duration;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     #[serde(default)]
     pub app: AppConfig,
+    #[serde(default)]
     pub database: DatabaseConfig,
     #[serde(default)]
     pub auth: AuthConfig,
@@ -31,6 +33,15 @@ pub struct DatabaseConfig {
     pub url: String,
     #[serde(default = "default_pool_max")]
     pub max_connections: u32,
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            url: String::new(),
+            max_connections: default_pool_max(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -121,7 +132,26 @@ impl Config {
             .add_source(config::File::with_name("config").required(false))
             .add_source(config::Environment::with_prefix("EXPENSES").separator("__"));
         let cfg = builder.build()?;
-        cfg.try_deserialize()
+        let mut config: Config = cfg.try_deserialize()?;
+
+        if config.database.url.trim().is_empty() {
+            let database_url = match env::var("EXPENSES__DATABASE__URL") {
+                Ok(url) if !url.trim().is_empty() => url,
+                _ => match env::var("DATABASE_URL") {
+                    Ok(url) if !url.trim().is_empty() => url,
+                    _ => {
+                        return Err(config::ConfigError::Message(
+                            "Missing database URL. Set EXPENSES__DATABASE__URL or DATABASE_URL."
+                                .into(),
+                        ));
+                    }
+                },
+            };
+
+            config.database.url = database_url;
+        }
+
+        Ok(config)
     }
 
     pub fn bind_address(&self) -> String {
@@ -159,4 +189,72 @@ fn default_max_receipt_size() -> u64 {
 
 fn default_max_receipt_count() -> u32 {
     10
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+    use config::ConfigError;
+    use serial_test::serial;
+    use std::env;
+
+    fn clear_env_vars() {
+        env::remove_var("EXPENSES__DATABASE__URL");
+        env::remove_var("DATABASE_URL");
+    }
+
+    #[test]
+    #[serial]
+    fn uses_expenses_database_url_when_config_missing() {
+        clear_env_vars();
+        env::set_var(
+            "EXPENSES__DATABASE__URL",
+            "postgres://expenses:expenses@localhost:5432/expenses",
+        );
+
+        let config = Config::from_env().expect("expected configuration to load");
+
+        assert_eq!(
+            config.database.url,
+            "postgres://expenses:expenses@localhost:5432/expenses"
+        );
+        assert_eq!(config.database.max_connections, 10);
+
+        clear_env_vars();
+    }
+
+    #[test]
+    #[serial]
+    fn falls_back_to_database_url_when_prefixed_missing() {
+        clear_env_vars();
+        env::set_var(
+            "DATABASE_URL",
+            "postgres://fallback:fallback@localhost:5432/fallback",
+        );
+
+        let config = Config::from_env().expect("expected configuration to load");
+
+        assert_eq!(
+            config.database.url,
+            "postgres://fallback:fallback@localhost:5432/fallback"
+        );
+
+        clear_env_vars();
+    }
+
+    #[test]
+    #[serial]
+    fn errors_when_no_database_url_available() {
+        clear_env_vars();
+
+        let error = Config::from_env().expect_err("expected configuration to fail");
+
+        match error {
+            ConfigError::Message(message) => assert_eq!(
+                message,
+                "Missing database URL. Set EXPENSES__DATABASE__URL or DATABASE_URL.".to_string()
+            ),
+            other => panic!("unexpected error: {:?}", other),
+        }
+    }
 }
