@@ -1,58 +1,64 @@
 -- Seed sample expense data to showcase line-item breakdowns in manager and finance views.
-INSERT INTO employees (id, hr_identifier, manager_id, department, role, created_at)
-VALUES (
-    '00000000-0000-0000-0000-000000000201',
-    'MGMT1001',
-    NULL,
-    'Operations',
-    'manager',
-    NOW()
+WITH manager AS (
+    INSERT INTO employees (id, hr_identifier, manager_id, department, role, created_at)
+    VALUES (
+        '00000000-0000-0000-0000-000000000201',
+        'MGMT1001',
+        NULL,
+        'Operations',
+        'manager',
+        NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET department = EXCLUDED.department
+    RETURNING id
+),
+employee AS (
+    INSERT INTO employees (id, hr_identifier, manager_id, department, role, created_at)
+    VALUES (
+        '00000000-0000-0000-0000-000000000301',
+        'EMP3101',
+        (SELECT id FROM manager),
+        'Logistics',
+        'employee',
+        NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET manager_id = EXCLUDED.manager_id, department = EXCLUDED.department
+    RETURNING id
+),
+report AS (
+    INSERT INTO expense_reports (
+        id,
+        employee_id,
+        reporting_period_start,
+        reporting_period_end,
+        status,
+        total_amount_cents,
+        total_reimbursable_cents,
+        currency,
+        version,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        '00000000-0000-0000-0000-000000000401',
+        (SELECT id FROM employee),
+        DATE '2024-04-01',
+        DATE '2024-04-30',
+        'submitted',
+        68500,
+        48500,
+        'USD',
+        2,
+        NOW(),
+        NOW()
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        total_amount_cents = EXCLUDED.total_amount_cents,
+        total_reimbursable_cents = EXCLUDED.total_reimbursable_cents,
+        status = EXCLUDED.status,
+        updated_at = NOW()
+    RETURNING id, employee_id
 )
-ON CONFLICT (id) DO UPDATE SET department = EXCLUDED.department;
-
-INSERT INTO employees (id, hr_identifier, manager_id, department, role, created_at)
-VALUES (
-    '00000000-0000-0000-0000-000000000301',
-    'EMP3101',
-    '00000000-0000-0000-0000-000000000201',
-    'Logistics',
-    'employee',
-    NOW()
-)
-ON CONFLICT (id) DO UPDATE SET manager_id = EXCLUDED.manager_id, department = EXCLUDED.department;
-
-INSERT INTO expense_reports (
-    id,
-    employee_id,
-    reporting_period_start,
-    reporting_period_end,
-    status,
-    total_amount_cents,
-    total_reimbursable_cents,
-    currency,
-    version,
-    created_at,
-    updated_at
-)
-VALUES (
-    '00000000-0000-0000-0000-000000000401',
-    '00000000-0000-0000-0000-000000000301',
-    DATE '2024-04-01',
-    DATE '2024-04-30',
-    'submitted',
-    68500,
-    48500,
-    'USD',
-    2,
-    NOW(),
-    NOW()
-)
-ON CONFLICT (id) DO UPDATE SET
-    total_amount_cents = EXCLUDED.total_amount_cents,
-    total_reimbursable_cents = EXCLUDED.total_reimbursable_cents,
-    status = EXCLUDED.status,
-    updated_at = NOW();
-
 INSERT INTO expense_items (
     id,
     report_id,
@@ -82,7 +88,7 @@ SELECT item_id,
 FROM (
     SELECT
         '00000000-0000-0000-0000-000000000501'::uuid AS item_id,
-        '00000000-0000-0000-0000-000000000401'::uuid AS report_id,
+        (SELECT id FROM report) AS report_id,
         DATE '2024-04-05' AS expense_date,
         'meal' AS category,
         NULL::uuid AS gl_account_id,
@@ -96,7 +102,7 @@ FROM (
     UNION ALL
     SELECT
         '00000000-0000-0000-0000-000000000502'::uuid,
-        '00000000-0000-0000-0000-000000000401'::uuid,
+        (SELECT id FROM report),
         DATE '2024-04-07',
         'lodging',
         NULL::uuid,
@@ -110,7 +116,7 @@ FROM (
     UNION ALL
     SELECT
         '00000000-0000-0000-0000-000000000503'::uuid,
-        '00000000-0000-0000-0000-000000000401'::uuid,
+        (SELECT id FROM report),
         DATE '2024-04-08',
         'ground_transport',
         NULL::uuid,
@@ -150,7 +156,11 @@ VALUES
         'lunch-2024-04-05.pdf',
         'application/pdf',
         45210,
-        '00000000-0000-0000-0000-000000000301'
+        (
+            SELECT employee_id
+            FROM expense_reports
+            WHERE id = '00000000-0000-0000-0000-000000000401'
+        )
     ),
     (
         '00000000-0000-0000-0000-000000000602',
@@ -159,7 +169,11 @@ VALUES
         'hotel-2024-04-07.pdf',
         'application/pdf',
         78200,
-        '00000000-0000-0000-0000-000000000301'
+        (
+            SELECT employee_id
+            FROM expense_reports
+            WHERE id = '00000000-0000-0000-0000-000000000401'
+        )
     )
 ON CONFLICT (id) DO UPDATE SET
     file_key = EXCLUDED.file_key,
