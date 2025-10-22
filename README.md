@@ -39,6 +39,15 @@ Install dependencies and prepare the database with the shared bootstrap script (
 ./scripts/bootstrap.sh
 ```
 
+The helper copies `.env.example` to `.env` if you have not created one yet and stops early with a clear message if the file ever goes missing from your checkout.
+
+> **Windows developers:** run these commands from a WSL2 distribution (Ubuntu or Debian recommended). Linux tooling such as `bash`, `curl`, and `cargo` are required during bootstrap and will fail from the Windows Command Prompt or PowerShell. Once inside WSL, install build tooling before bootstrapping:
+> ```bash
+> sudo apt-get update
+> sudo apt-get install -y build-essential pkg-config libssl-dev
+> ```
+> These packages provide the `cc` linker that Rust crates such as `serde` need to compile native dependencies.
+
 The script installs JavaScript dependencies, launches the PostgreSQL service defined in `compose.yaml`, waits for readiness, and runs the Rust migrator (`cargo run --bin migrator`) so the schema exists before starting the API.
 
 Once bootstrapped, start both the Axum API and the Vite dev server with a single command:
