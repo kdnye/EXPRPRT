@@ -3,12 +3,13 @@ use std::{convert::TryFrom, fmt};
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use sqlx::TypeInfo;
 use sqlx::{
     decode::Decode,
     encode::{Encode, IsNull},
     error::BoxDynError,
     postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef},
-    FromRow, Postgres, Type, TypeInfo,
+    FromRow, Postgres, Type,
 };
 use uuid::Uuid;
 
@@ -75,8 +76,7 @@ impl<'q> Encode<'q, Postgres> for Role {
     }
 
     fn size_hint(&self) -> usize {
-        let value = self.as_str();
-        <&str as Encode<Postgres>>::size_hint(&value)
+        <&str as Encode<Postgres>>::size_hint(&self.as_str())
     }
 }
 
