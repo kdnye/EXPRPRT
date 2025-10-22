@@ -41,6 +41,8 @@ Install dependencies and prepare the database with the shared bootstrap script (
 
 The helper copies `.env.example` to `.env` if you have not created one yet and stops early with a clear message if the file ever goes missing from your checkout.
 
+> **Port already in use?** PostgreSQL defaults to host port `5432`. If you already have a local instance running, set `POSTGRES_HOST_PORT` to an unused port before invoking the script (for example `POSTGRES_HOST_PORT=55432 ./scripts/bootstrap.sh`).
+
 > **Windows developers:** run these commands from a WSL2 distribution (Ubuntu or Debian recommended). Linux tooling such as `bash`, `curl`, and `cargo` are required during bootstrap and will fail from the Windows Command Prompt or PowerShell. Once inside WSL, install build tooling before bootstrapping:
 > ```bash
 > sudo apt-get update
@@ -107,9 +109,9 @@ Services exposed:
 - Receipts uploaded during development are written to the `receipts` named volume
 
 If port `5432` is already bound on your machine, set `POSTGRES_HOST_PORT` in `.env`
-before running Compose (for example `POSTGRES_HOST_PORT=55432`). Likewise, override
-`FRONTEND_HOST_PORT` to remap the NGINX container to a free host port when the default
-`4173` is already taken (for example `FRONTEND_HOST_PORT=4300`).
+before running Compose or prefix the command (`POSTGRES_HOST_PORT=55432 docker compose up`).
+Likewise, override `FRONTEND_HOST_PORT` to remap the NGINX container to a free host port when the default `4173` is already
+taken (for example `FRONTEND_HOST_PORT=4300`).
 
 ### Local Backend Workflow
 
