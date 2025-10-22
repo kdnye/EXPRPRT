@@ -156,7 +156,11 @@ VALUES
         'lunch-2024-04-05.pdf',
         'application/pdf',
         45210,
-        (SELECT employee_id FROM report)
+        (
+            SELECT employee_id
+            FROM expense_reports
+            WHERE id = '00000000-0000-0000-0000-000000000401'
+        )
     ),
     (
         '00000000-0000-0000-0000-000000000602',
@@ -165,7 +169,11 @@ VALUES
         'hotel-2024-04-07.pdf',
         'application/pdf',
         78200,
-        (SELECT employee_id FROM report)
+        (
+            SELECT employee_id
+            FROM expense_reports
+            WHERE id = '00000000-0000-0000-0000-000000000401'
+        )
     )
 ON CONFLICT (id) DO UPDATE SET
     file_key = EXCLUDED.file_key,
