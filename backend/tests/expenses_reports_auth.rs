@@ -98,33 +98,48 @@ async fn run_scenario(pool: PgPool) -> Result<()> {
 
     assert_eq!(unauthenticated_response.status(), StatusCode::UNAUTHORIZED);
 
-    let login_response = app
+    let login_payload = serde_json::json!({
+        "hr_identifier": hr_identifier,
+        "credential": "dev-pass"
+    })
+    .to_string();
+
+    let top_level_login = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(login_payload.clone()))
+                .expect("failed to build top-level login request"),
+        )
+        .await
+        .expect("service error");
+
+    assert_eq!(top_level_login.status(), StatusCode::OK);
+
+    let login_body = to_bytes(top_level_login.into_body(), 1024 * 1024).await?;
+    let token: String = serde_json::from_slice::<Value>(&login_body)?
+        .get("token")
+        .and_then(Value::as_str)
+        .unwrap()
+        .to_string();
+
+    let namespaced_login = app
         .clone()
         .oneshot(
             Request::builder()
                 .method("POST")
                 .uri("/api/auth/login")
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(
-                    serde_json::json!({
-                        "hr_identifier": hr_identifier,
-                        "credential": "dev-pass"
-                    })
-                    .to_string(),
-                ))
-                .expect("failed to build login request"),
+                .body(Body::from(login_payload))
+                .expect("failed to build namespaced login request"),
         )
         .await
         .expect("service error");
 
-    assert_eq!(login_response.status(), StatusCode::OK);
-
-    let login_body = to_bytes(login_response.into_body(), 1024 * 1024).await?;
-    let token: String = serde_json::from_slice::<Value>(&login_body)?
-        .get("token")
-        .and_then(Value::as_str)
-        .unwrap()
-        .to_string();
+    assert_eq!(namespaced_login.status(), StatusCode::OK);
 
     let authorized_response = app
         .clone()
