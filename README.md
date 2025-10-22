@@ -34,6 +34,8 @@ Install dependencies and prepare the database with the shared bootstrap script (
 > curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 > ```
 > Restart your shell (or source `$HOME/.cargo/env`) afterward so subsequent commands can find the toolchain.
+> When Rust is missing locally but Docker is present, `bootstrap.sh` now spins up a short-lived `rust:1.81` container to run the
+> database migrator automatically. Override the image/tag via `BOOTSTRAP_RUST_IMAGE` if you need a different toolchain.
 
 ```bash
 ./scripts/bootstrap.sh
