@@ -144,7 +144,7 @@ backend/
 - Inline policy hints and validation messages sourced from backend responses.
 - Receipt uploader with preview, progress bar, and offline queueing.
 - Mileage calculator with Google Maps integration optional (feature-flagged) or manual entry with odometer fields.
-- Draft autosave to IndexedDB via service worker background sync.
+- Draft autosave persists to localStorage using the in-app draft store hook.
 
 ### Manager Console
 - Inbox of pending reports, sortable by submission date and employee.
@@ -158,10 +158,10 @@ backend/
 - Export history with status, retry, and download of journal preview (CSV/XLSX).
 - Audit timeline showing state changes and NetSuite responses.
 
-### Offline & PWA Support
-- Service worker caches shell assets, API responses, and queued mutations.
-- Local `DraftStore` in IndexedDB storing pending reports and receipts; background sync pushes when online.
-- Conflict resolution relies on report `version`; UI prompts user if server version diverges.
+### Offline Support
+- React Query caches recent server responses in memory and falls back to refetching when online.
+- Local `DraftStore` relies on browser localStorage to retain pending reports across sessions.
+- Conflict resolution relies on report `version`; UI prompts the user if the server version diverges.
 
 ### Branding & Accessibility
 - Typography: Bebas Neue for headings, Lato/Open Sans for body text.

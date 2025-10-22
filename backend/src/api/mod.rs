@@ -13,8 +13,6 @@ use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::warn;
 
 use self::rest::router as rest_router;
-
-pub mod graphql;
 pub mod rest;
 
 use crate::infrastructure::{
