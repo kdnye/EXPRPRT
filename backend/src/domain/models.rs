@@ -1,11 +1,21 @@
+use std::{
+    convert::TryFrom,
+    fmt,
+};
+
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use sqlx::{FromRow, Type};
+use sqlx::{
+    decode::Decode,
+    encode::{Encode, EncodeResult},
+    error::BoxDynError,
+    postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, PgValueRef},
+    FromRow, Postgres, Type,
+};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Type)]
-#[sqlx(type_name = "employee_role", rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Role {
     Employee,
     Manager,
@@ -23,6 +33,81 @@ impl Role {
         }
     }
 }
+
+impl Role {
+    fn parse_normalized(value: &str) -> Result<Self, RoleParseError> {
+        match value {
+            "employee" => Ok(Role::Employee),
+            "manager" => Ok(Role::Manager),
+            "finance" => Ok(Role::Finance),
+            "admin" => Ok(Role::Admin),
+            _ => Err(RoleParseError::new(value)),
+        }
+    }
+}
+
+impl TryFrom<&str> for Role {
+    type Error = RoleParseError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        let normalized = value.trim().to_ascii_lowercase();
+        Role::parse_normalized(&normalized)
+    }
+}
+
+impl Type<Postgres> for Role {
+    fn type_info() -> PgTypeInfo {
+        PgTypeInfo::with_name("employee_role")
+    }
+
+    fn compatible(ty: &PgTypeInfo) -> bool {
+        matches!(ty.name(), "employee_role" | "text" | "varchar" | "bpchar")
+    }
+}
+
+impl PgHasArrayType for Role {
+    fn array_type_info() -> PgTypeInfo {
+        PgTypeInfo::with_name("_employee_role")
+    }
+}
+
+impl<'q> Encode<'q, Postgres> for Role {
+    fn encode_by_ref(&self, buf: &mut PgArgumentBuffer) -> EncodeResult<()> {
+        <&str as Encode<Postgres>>::encode(self.as_str(), buf)
+    }
+
+    fn size_hint(&self) -> usize {
+        <&str as Encode<Postgres>>::size_hint(self.as_str())
+    }
+}
+
+impl<'r> Decode<'r, Postgres> for Role {
+    fn decode(value: PgValueRef<'r>) -> Result<Self, BoxDynError> {
+        let raw = <&str as Decode<Postgres>>::decode(value)?;
+        Role::try_from(raw).map_err(|err| Box::new(err) as BoxDynError)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RoleParseError {
+    value: String,
+}
+
+impl RoleParseError {
+    fn new(value: &str) -> Self {
+        Self {
+            value: value.to_owned(),
+        }
+    }
+}
+
+impl fmt::Display for RoleParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "unsupported role value: {}", self.value)
+    }
+}
+
+impl std::error::Error for RoleParseError {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Employee {
