@@ -9,7 +9,7 @@ use axum::{
 };
 use tower_http::services::ServeDir;
 
-use tower_http::cors::{AllowOrigin, Any, CorsLayer};
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 use tracing::warn;
 
 use self::rest::router as rest_router;
@@ -59,8 +59,8 @@ fn build_cors_layer(config: &Config) -> CorsLayer {
     const DEFAULT_CORS_ORIGINS: &[&str] = &["http://localhost:5173", "http://127.0.0.1:5173"];
 
     let base = CorsLayer::new()
-        .allow_methods(Any)
-        .allow_headers(Any)
+        .allow_methods(AllowMethods::mirror_request())
+        .allow_headers(AllowHeaders::mirror_request())
         .allow_credentials(true);
 
     let configured_origins: Vec<&str> = if config.app.cors_origins.is_empty() {
@@ -93,4 +93,35 @@ async fn require_authenticated_user(request: Request, next: Next) -> Result<Resp
     AuthenticatedUser::from_request_parts(&mut parts, &()).await?;
     let request = Request::from_parts(parts, body);
     Ok(next.run(request).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_cors_layer;
+    use crate::infrastructure::config::{
+        AppConfig, AuthConfig, Config, DatabaseConfig, NetSuiteConfig, ReceiptRules, StorageConfig,
+    };
+
+    fn base_config() -> Config {
+        Config {
+            app: AppConfig {
+                cors_origins: vec!["http://example.com".into()],
+                ..AppConfig::default()
+            },
+            database: DatabaseConfig::default(),
+            auth: AuthConfig::default(),
+            storage: StorageConfig::default(),
+            netsuite: NetSuiteConfig::default(),
+            receipts: ReceiptRules::default(),
+        }
+    }
+
+    #[test]
+    fn cors_layer_with_credentials_does_not_panic_with_configured_origins() {
+        let config = base_config();
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| build_cors_layer(&config)));
+
+        assert!(result.is_ok(), "building the CORS layer should not panic");
+    }
 }
