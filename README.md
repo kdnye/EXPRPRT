@@ -16,7 +16,7 @@ A full-stack implementation of the Freight Services expense workflow using Rust 
 - Chunked receipt uploads backed by a pluggable storage provider (local filesystem, S3/GCS-ready interface)
 - Manager and finance workflows with optimistic locking and tamper-resistant audit logging
 - NetSuite batch export stubs ready for credential wiring plus retry-aware job scaffolding
-- Offline-aware React UI with local draft persistence and service worker caching
+- Offline-aware React UI with local draft persistence for in-progress reports
 
 ## Getting Started
 

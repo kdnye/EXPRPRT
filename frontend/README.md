@@ -17,4 +17,4 @@ Configure the API base URL by setting `VITE_API_BASE` in your `.env` file. At ru
 
 ## Offline support
 
-A lightweight service worker precaches the application shell and serves cached assets when the device goes offline. Draft expense data is saved to `localStorage` via the `offline/draftStore.ts` helper.
+Draft expense data is saved to `localStorage` via the `offline/draftStore.ts` helper so users can resume in-progress reports if a tab is closed or the network blips. Cached server state relies on React Query's stale-while-revalidate model; the application no longer bundles a service worker.
