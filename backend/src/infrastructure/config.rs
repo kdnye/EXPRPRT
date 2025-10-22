@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::env;
 use std::time::Duration;
 
@@ -24,7 +25,7 @@ pub struct AppConfig {
     pub host: String,
     #[serde(default = "default_port")]
     pub port: u16,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_cors_origins")]
     pub cors_origins: Vec<String>,
 }
 
@@ -191,6 +192,45 @@ fn default_max_receipt_count() -> u32 {
     10
 }
 
+fn deserialize_cors_origins<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Input {
+        List(Vec<String>),
+        Map(HashMap<String, String>),
+        String(String),
+    }
+
+    match Input::deserialize(deserializer)? {
+        Input::List(values) => Ok(values),
+        Input::Map(mut values) => {
+            let mut entries: Vec<(usize, String)> = Vec::with_capacity(values.len());
+
+            for (key, value) in values.drain() {
+                let index = key.parse::<usize>().map_err(|_| {
+                    serde::de::Error::custom(format!(
+                        "invalid index '{key}' for CORS origin; expected usize"
+                    ))
+                })?;
+                entries.push((index, value));
+            }
+
+            entries.sort_by_key(|(index, _)| *index);
+
+            Ok(entries.into_iter().map(|(_, value)| value).collect())
+        }
+        Input::String(value) => Ok(value
+            .split(',')
+            .map(str::trim)
+            .filter(|origin| !origin.is_empty())
+            .map(str::to_string)
+            .collect()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Config;
@@ -201,6 +241,9 @@ mod tests {
     fn clear_env_vars() {
         env::remove_var("EXPENSES__DATABASE__URL");
         env::remove_var("DATABASE_URL");
+        env::remove_var("EXPENSES__APP__CORS_ORIGINS");
+        env::remove_var("EXPENSES__APP__CORS_ORIGINS__0");
+        env::remove_var("EXPENSES__APP__CORS_ORIGINS__1");
     }
 
     #[test]
@@ -256,5 +299,55 @@ mod tests {
             ),
             other => panic!("unexpected error: {:?}", other),
         }
+    }
+
+    #[test]
+    #[serial]
+    fn loads_cors_origins_from_indexed_environment_variables() {
+        clear_env_vars();
+        env::set_var(
+            "EXPENSES__DATABASE__URL",
+            "postgres://expenses:expenses@localhost:5432/expenses",
+        );
+        env::set_var("EXPENSES__APP__CORS_ORIGINS__0", "http://localhost:3000");
+        env::set_var("EXPENSES__APP__CORS_ORIGINS__1", "http://127.0.0.1:3000");
+
+        let config = Config::from_env().expect("expected configuration to load");
+
+        assert_eq!(
+            config.app.cors_origins,
+            vec![
+                "http://localhost:3000".to_string(),
+                "http://127.0.0.1:3000".to_string(),
+            ]
+        );
+
+        clear_env_vars();
+    }
+
+    #[test]
+    #[serial]
+    fn loads_cors_origins_from_comma_separated_string() {
+        clear_env_vars();
+        env::set_var(
+            "EXPENSES__DATABASE__URL",
+            "postgres://expenses:expenses@localhost:5432/expenses",
+        );
+        env::set_var(
+            "EXPENSES__APP__CORS_ORIGINS",
+            "http://localhost:4000, http://127.0.0.1:4000",
+        );
+
+        let config = Config::from_env().expect("expected configuration to load");
+
+        assert_eq!(
+            config.app.cors_origins,
+            vec![
+                "http://localhost:4000".to_string(),
+                "http://127.0.0.1:4000".to_string(),
+            ]
+        );
+
+        clear_env_vars();
     }
 }
