@@ -143,6 +143,8 @@ npm run dev
 
 Visit <http://localhost:3000> (forwarded from Vite’s configured host/port) to access the SPA. The dev server proxies API calls to `VITE_API_BASE` (default `/api`).
 
+The backend’s default CORS allowlist already covers `http://localhost:3000` and `http://127.0.0.1:3000`, matching `scripts/dev-start.sh`. Update `EXPENSES__APP__CORS_ORIGINS` if you expose the frontend on additional hosts or ports.
+
 ## Testing & Quality Gates
 
 - `cargo fmt` / `cargo check` / `cargo test` for the Rust backend
