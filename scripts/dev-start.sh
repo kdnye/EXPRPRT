@@ -6,6 +6,18 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$REPO_ROOT"
 
+TOOLCHAIN_FILE=""
+if [[ -f "${REPO_ROOT}/rust-toolchain.toml" ]]; then
+  TOOLCHAIN_FILE="${REPO_ROOT}/rust-toolchain.toml"
+elif [[ -f "${REPO_ROOT}/backend/rust-toolchain.toml" ]]; then
+  TOOLCHAIN_FILE="${REPO_ROOT}/backend/rust-toolchain.toml"
+fi
+
+TOOLCHAIN_CHANNEL=""
+if [[ -n "${TOOLCHAIN_FILE}" ]]; then
+  TOOLCHAIN_CHANNEL="$(awk -F'"' '/^[[:space:]]*channel/ {print $2; exit}' "${TOOLCHAIN_FILE}" || true)"
+fi
+
 ENV_FILE="${REPO_ROOT}/.env"
 if [[ -f "${ENV_FILE}" ]]; then
   set -a
@@ -59,7 +71,11 @@ if [[ -d "${REPO_ROOT}/backend" ]]; then
   if command -v cargo >/dev/null 2>&1; then
     (
       cd backend
-      cargo run
+      if [[ -n "${TOOLCHAIN_CHANNEL}" ]]; then
+        RUSTUP_TOOLCHAIN="${TOOLCHAIN_CHANNEL}" cargo run
+      else
+        cargo run
+      fi
     ) &
     BACK_PID=$!
   else
