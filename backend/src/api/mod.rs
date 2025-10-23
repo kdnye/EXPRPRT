@@ -57,21 +57,16 @@ fn receipts_router(config: &Config) -> Option<Router> {
     )
 }
 
-fn build_cors_layer(config: &Config) -> CorsLayer {
-    const DEFAULT_CORS_ORIGINS: &[&str] = &["http://localhost:5173", "http://127.0.0.1:5173"];
+const DEFAULT_CORS_ORIGINS: &[&str] = &["http://localhost:3000", "http://127.0.0.1:3000"];
 
-    let base = CorsLayer::new()
-        .allow_methods(AllowMethods::mirror_request())
-        .allow_headers(AllowHeaders::mirror_request())
-        .allow_credentials(true);
-
+fn configured_cors_origins(config: &Config) -> Vec<HeaderValue> {
     let configured_origins: Vec<&str> = if config.app.cors_origins.is_empty() {
         DEFAULT_CORS_ORIGINS.to_vec()
     } else {
         config.app.cors_origins.iter().map(String::as_str).collect()
     };
 
-    let origins: Vec<HeaderValue> = configured_origins
+    configured_origins
         .into_iter()
         .filter_map(|origin| match origin.parse::<HeaderValue>() {
             Ok(value) => Some(value),
@@ -80,7 +75,16 @@ fn build_cors_layer(config: &Config) -> CorsLayer {
                 None
             }
         })
-        .collect();
+        .collect()
+}
+
+fn build_cors_layer(config: &Config) -> CorsLayer {
+    let base = CorsLayer::new()
+        .allow_methods(AllowMethods::mirror_request())
+        .allow_headers(AllowHeaders::mirror_request())
+        .allow_credentials(true);
+
+    let origins = configured_cors_origins(config);
 
     if origins.is_empty() {
         warn!("no valid CORS origins configured; credentialed requests will fail");
@@ -99,7 +103,7 @@ async fn require_authenticated_user(request: Request, next: Next) -> Result<Resp
 
 #[cfg(test)]
 mod tests {
-    use super::build_cors_layer;
+    use super::{build_cors_layer, configured_cors_origins, DEFAULT_CORS_ORIGINS};
     use crate::infrastructure::config::{
         AppConfig, AuthConfig, Config, DatabaseConfig, NetSuiteConfig, ReceiptRules, StorageConfig,
     };
@@ -126,5 +130,19 @@ mod tests {
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| build_cors_layer(&config)));
 
         assert!(result.is_ok(), "building the CORS layer should not panic");
+    }
+
+    #[test]
+    fn default_cors_origins_align_with_dev_server_port() {
+        let mut config = base_config();
+        config.app.cors_origins.clear();
+
+        let origins = configured_cors_origins(&config);
+        let parsed: Vec<&str> = origins
+            .iter()
+            .map(|value| value.to_str().expect("default origin should parse"))
+            .collect();
+
+        assert_eq!(parsed, DEFAULT_CORS_ORIGINS);
     }
 }
