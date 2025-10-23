@@ -6,6 +6,28 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$REPO_ROOT"
 
+# Determine whether a rust-toolchain file is present so cargo picks the pinned
+# channel automatically during bootstrap.
+TOOLCHAIN_FILE=""
+if [[ -f "${REPO_ROOT}/rust-toolchain.toml" ]]; then
+  TOOLCHAIN_FILE="${REPO_ROOT}/rust-toolchain.toml"
+elif [[ -f "${REPO_ROOT}/backend/rust-toolchain.toml" ]]; then
+  TOOLCHAIN_FILE="${REPO_ROOT}/backend/rust-toolchain.toml"
+fi
+
+TOOLCHAIN_CHANNEL=""
+if [[ -n "${TOOLCHAIN_FILE}" ]]; then
+  TOOLCHAIN_CHANNEL="$(awk -F'"' '/^[[:space:]]*channel/ {print $2; exit}' "${TOOLCHAIN_FILE}" || true)"
+fi
+
+cargo_with_toolchain() {
+  if [[ -n "${TOOLCHAIN_CHANNEL}" ]]; then
+    RUSTUP_TOOLCHAIN="${TOOLCHAIN_CHANNEL}" cargo "$@"
+  else
+    cargo "$@"
+  fi
+}
+
 # Ensure a working environment file is present for local runs.
 if [[ ! -f "${REPO_ROOT}/.env" ]]; then
   if [[ -f "${REPO_ROOT}/.env.example" ]]; then
@@ -129,7 +151,10 @@ EOF
   fi
 
   echo "Running database migrations..."
-  cargo run --manifest-path backend/Cargo.toml --bin migrator
+  (
+    cd backend
+    cargo_with_toolchain run --bin migrator
+  )
   exit 0
 fi
 
@@ -162,7 +187,8 @@ fi
 apt-get update -y >/dev/null 2>&1
 apt-get install -y pkg-config libssl-dev >/dev/null 2>&1
 
-cargo run --manifest-path backend/Cargo.toml --bin migrator
+cd /app/backend
+cargo run --bin migrator
 EOF
 
 docker run --rm \
@@ -172,5 +198,6 @@ docker run --rm \
   -e "EXPENSES__DATABASE__URL=${CONTAINER_DATABASE_URL}" \
   -e "DATABASE_URL=${CONTAINER_DATABASE_URL}" \
   -e "RUST_LOG=${RUST_LOG:-debug}" \
+  ${TOOLCHAIN_CHANNEL:+-e "RUSTUP_TOOLCHAIN=${TOOLCHAIN_CHANNEL}"} \
   "${RUST_DOCKER_IMAGE}" \
   bash -lc "${DOCKER_MIGRATOR}"

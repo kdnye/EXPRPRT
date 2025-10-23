@@ -22,20 +22,20 @@ A full-stack implementation of the Freight Services expense workflow using Rust 
 
 ### Prerequisites
 
-- Rust 1.74+
+- Rust nightly toolchain pinned to `nightly-2024-05-23` (managed automatically via `rust-toolchain.toml`)
 - Node.js 20+
 - Docker (optional, for containerized development)
 - PostgreSQL 15 (local or via Docker Compose)
 
 Install dependencies and prepare the database with the shared bootstrap script (it is invoked automatically inside our devcontainer/Codespaces image):
 
-> **Need Rust?** Install it via [rustup](https://rustup.rs/) before running the bootstrap script so `cargo` is available on your `PATH`:
+> **Need Rust?** Install it via [rustup](https://rustup.rs/) before running the bootstrap script so `cargo` is available on your `PATH` and the pinned nightly channel can be installed automatically:
 > ```bash
 > curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 > ```
-> Restart your shell (or source `$HOME/.cargo/env`) afterward so subsequent commands can find the toolchain.
+> Restart your shell (or source `$HOME/.cargo/env`) afterward so subsequent commands can find the toolchain. With rustup installed, run `rustup toolchain install nightly-2024-05-23 -c rustfmt clippy` once; future `cargo` commands will pick it up automatically because of the repository’s `rust-toolchain.toml`.
 > When Rust is missing locally but Docker is present, `bootstrap.sh` now spins up a short-lived `rust:1.81` container to run the
-> database migrator automatically. Override the image/tag via `BOOTSTRAP_RUST_IMAGE` if you need a different toolchain.
+> database migrator automatically. The script sets `RUSTUP_TOOLCHAIN=nightly-2024-05-23` inside that container so the same compiler version is used. Override the image/tag via `BOOTSTRAP_RUST_IMAGE` if you need a different toolchain.
 
 ```bash
 ./scripts/bootstrap.sh
