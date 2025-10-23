@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   db:
     image: postgres:15
@@ -10,6 +12,28 @@ services:
       - pgdata:/var/lib/postgresql/data
     ports:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  migrator:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      RUST_LOG: info
+      EXPENSES__DATABASE__URL: postgres://expenses:expenses@db:5432/expenses
+      EXPENSES__AUTH__JWT_SECRET: dev-admin-secret
+      EXPENSES__STORAGE__PROVIDER: local
+      EXPENSES__STORAGE__LOCAL_PATH: /data/receipts
+    command: ["migrator"]
+    restart: "no"
+    volumes:
+      - receipts:/data/receipts
 
   backend:
     build: ./backend
@@ -20,7 +44,10 @@ services:
       EXPENSES__STORAGE__PROVIDER: local
       EXPENSES__STORAGE__LOCAL_PATH: /data/receipts
     depends_on:
-      - db
+      migrator:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
     ports:
       - "8080:8080"
     volumes:
