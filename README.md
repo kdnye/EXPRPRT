@@ -95,6 +95,8 @@ Key authentication variables:
 - `EXPENSES__AUTH__BYPASS_AUTH` – set to `true` **only in development** to skip JWT validation and impersonate a single employee defined by `EXPENSES__AUTH__BYPASS_HR_IDENTIFIER`.
 - `EXPENSES__AUTH__BYPASS_HR_IDENTIFIER` – HR identifier used when bypassing authentication; the backend resolves this employee once at startup.
 
+For manual requests against a freshly seeded database, copy the pre-generated manager JWT in `docs/dev-manager-token.jwt`. It is signed with the default `dev-admin-secret`, scoped to the seeded manager (`00000000-0000-0000-0000-000000000201`), and encodes the `role` claim as `"Manager"` so Axum's deserializer accepts it.
+
 Frontend builds can mirror the bypass setting by enabling `VITE_AUTH_BYPASS` (and optionally overriding `VITE_AUTH_BYPASS_ROLE`) so the shell skips the login screen when the backend is impersonating a user.
 
 ### Run Everything with Docker Compose
