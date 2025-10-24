@@ -88,6 +88,8 @@ cp .env.example .env
 
 All backend settings use the `EXPENSES__` prefix and are parsed by `backend/src/infrastructure/config.rs`. Frontend builds read `VITE_` variables at compile time and defer to runtime overrides via HTML meta tags or `window.__FSI_EXPENSES_CONFIG__`.
 
+For a deeper explanation of the developer login and expense submission flows—including troubleshooting tips—see [docs/authentication-and-reports.md](docs/authentication-and-reports.md).
+
 Key authentication variables:
 
 - `EXPENSES__AUTH__JWT_SECRET` – symmetric secret used to sign issued JWTs.
